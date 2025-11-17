@@ -6,7 +6,7 @@ import { CalendarDaysIcon, Cog6ToothIcon, HeartIcon, HomeIcon, HomeModernIcon, U
 import Swal from "sweetalert2";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../lib/supabaseClient";
-import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon } from "@heroicons/react/24/outline";
 
 const items = [
   { href: "/pet_owner", label: "Overview", icon: HomeIcon },
@@ -295,16 +295,7 @@ export function Sidebar() {
       </div>
     </aside>
 
-    {/* Floating open button for mobile */}
-    {isMobile && !drawerOpen && (
-      <button
-        onClick={() => setDrawerOpen(true)}
-        className="fixed bottom-6 left-4 z-40 inline-flex items-center justify-center w-10 h-10 rounded-full bg-blue-600 text-white shadow-lg ring-1 ring-blue-400/30"
-        aria-label="Open menu"
-      >
-        <Bars3Icon className="h-5 w-5" />
-      </button>
-    )}
+    {/* Removed floating open button to avoid duplicate burger on mobile; header button controls opening via 'po_sidebar_open' event */}
     </>
   );
 }
