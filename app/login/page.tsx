@@ -7,6 +7,9 @@ import Swal from "sweetalert2";
 import { supabase } from "../../lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import ForgotPasswordModal from "../components/ForgotPasswordModal";
+import { getSiteUrl } from "../../lib/utils/site";
+
+const SITE_URL = getSiteUrl();
 
 const PRIMARY = "#0032A0";
 const SECONDARY = "#b3c7e6";
@@ -286,7 +289,7 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: 'https://zambovet-v2.vercel.app/login',
+          redirectTo: `${SITE_URL}/login`,
           queryParams: { prompt: 'select_account' },
         },
       });
