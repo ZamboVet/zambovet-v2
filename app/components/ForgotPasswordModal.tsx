@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { XMarkIcon, EnvelopeIcon } from "@heroicons/react/24/outline";
 import { supabase } from "../../lib/supabaseClient";
 import Swal from "sweetalert2";
+import { getSiteUrl } from "../../lib/utils/site";
+
+const SITE_URL = getSiteUrl();
 
 export type ForgotPasswordModalProps = {
   open: boolean;
@@ -79,7 +82,7 @@ export default function ForgotPasswordModal({ open, onClose }: ForgotPasswordMod
     try {
       setLoading(true);
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `https://zambovet-v2.vercel.app/reset-password`,
+        redirectTo: `${SITE_URL}/reset-password`,
       });
 
       if (resetError) {
