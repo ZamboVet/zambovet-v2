@@ -388,12 +388,12 @@ export default function ClinicLocationPage() {
 
   return (
     <div className={`${poppins.className} space-y-6`}>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold" style={{ color: PRIMARY }}>Clinic Location</h1>
           <div className="text-sm text-gray-500">Set your clinic coordinates and opening hours</div>
         </div>
-        <button onClick={save} disabled={saving || loading} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60">
+        <button onClick={save} disabled={saving || loading} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 w-full sm:w-auto">
           {saving ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : null}
           Save
         </button>

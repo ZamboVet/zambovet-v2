@@ -320,7 +320,7 @@ export default function AdminClinicsPage() {
         {/* New button removed */}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2">
         {/* Search bar removed */}
         <div className="inline-flex items-center gap-2 rounded-full bg-white ring-1 ring-black/5 px-3 py-2">
           <AdjustmentsHorizontalIcon className="w-4 h-4 text-gray-500" />
@@ -351,7 +351,39 @@ export default function AdminClinicsPage() {
       )}
 
       <div className="rounded-2xl bg-white shadow-sm ring-1 ring-black/5 overflow-hidden">
-        <div className="max-h-[70vh] overflow-auto" suppressHydrationWarning>
+        {/* Mobile list (sm:hidden) */}
+        <div className="sm:hidden divide-y">
+          {(loading ? Array.from({length:6}).map((_,i)=>({id:i,name:"",email:"",phone:"",address:"",is_active:true,created_at:null,latitude:null,longitude:null,operating_hours:null})) : pageRows).map((c:any)=> (
+            <div key={c.id} className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-medium truncate" style={{ color: PRIMARY }}>{c.name || "Loading"}</div>
+                  <div className="text-xs text-gray-500 truncate">{c.email || "-"}{c.phone?` • ${c.phone}`:""}</div>
+                  <div className="text-xs text-gray-500 truncate" title={c.address || "-"}>{c.address || "-"}</div>
+                </div>
+                <button onClick={()=>toggleActive(c as any)} className={`px-2 py-1 rounded-full text-[11px] font-medium ${c.is_active?"bg-green-100 text-green-700":"bg-rose-100 text-rose-700"}`}>{c.is_active?"Active":"Inactive"}</button>
+              </div>
+              <div className="mt-3 flex items-center justify-end gap-2">
+                <button onClick={()=>startEdit(c as any)} className="px-2 py-1 rounded-lg bg-gray-50 text-xs hover:bg-blue-50">Edit</button>
+                <button onClick={()=>viewDetails(c as any)} className="px-2 py-1 rounded-lg bg-gray-50 text-xs hover:bg-blue-50">Details</button>
+              </div>
+            </div>
+          ))}
+          <div className="flex items-center justify-between gap-3 px-4 py-3 border-t bg-white">
+            <div className="text-xs text-gray-500">Showing {filtered.length === 0 ? 0 : pageStart + 1}–{pageEnd} of {filtered.length}</div>
+            <div className="inline-flex items-center gap-2">
+              <button disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))} className="px-3 py-1.5 rounded-lg bg-gray-50 hover:bg-blue-50 disabled:opacity-50 inline-flex items-center gap-1" style={{ color: PRIMARY }}>
+                <ChevronLeftIcon className="w-4 h-4" /> Prev
+              </button>
+              <div className="text-xs text-gray-600">Page {page} / {totalPages}</div>
+              <button disabled={page>=totalPages} onClick={()=>setPage(p=>Math.min(totalPages,p+1))} className="px-3 py-1.5 rounded-lg bg-gray-50 hover:bg-blue-50 disabled:opacity-50 inline-flex items-center gap-1" style={{ color: PRIMARY }}>
+                Next <ChevronRightIcon className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+        {/* Desktop/tablet resizable grid */}
+        <div className="hidden sm:block max-h[70vh] overflow-auto" suppressHydrationWarning>
           <div className="grid gap-3 px-4 py-3 text-xs font-medium text-gray-600 bg-gray-50/80 sticky top-0 z-10 backdrop-blur select-none"
                style={{ gridTemplateColumns: `${widths.select}% minmax(0, ${widths.clinic}%) minmax(0, ${widths.contact}%) minmax(0, ${widths.address}%) minmax(180px, ${widths.status}%)` }}>
             <div className="flex items-center gap-2">

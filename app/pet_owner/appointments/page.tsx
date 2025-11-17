@@ -269,32 +269,32 @@ export default function OwnerAppointmentsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 px-3 sm:px-4 lg:px-6 py-4 sm:py-6">
-      <div className="mx-auto max-w-7xl space-y-4 sm:space-y-6">
+    <div className="min-h-screen bg-neutral-50 px-3 sm:px-4 md:px-6 py-4 sm:py-5 md:py-6">
+      <div className="mx-auto max-w-7xl space-y-3 sm:space-y-4 md:space-y-6">
       {/* Header card like MyPetsPage */}
-      <div className="rounded-2xl sm:rounded-3xl bg-white/80 backdrop-blur-sm shadow ring-1 ring-black/5 p-3 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl bg-blue-600 text-white flex-shrink-0 grid place-items-center">
+      <div className="rounded-lg sm:rounded-2xl md:rounded-3xl bg-white/80 backdrop-blur-sm shadow ring-1 ring-black/5 p-3 sm:p-4 md:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+          <div className="h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 rounded-lg sm:rounded-xl bg-blue-600 text-white flex-shrink-0 grid place-items-center">
             <CalendarDaysIcon className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           <div className="min-w-0">
-            <div className="text-base sm:text-lg font-semibold text-neutral-900">My Appointments</div>
-            <div className="text-xs sm:text-sm text-neutral-500 truncate">Book and manage your pet's visits</div>
+            <div className="text-sm sm:text-base md:text-lg font-semibold text-neutral-900 truncate">My Appointments</div>
+            <div className="text-[10px] sm:text-xs md:text-sm text-neutral-500 truncate">Book and manage your pet's visits</div>
           </div>
         </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <button onClick={()=> setViewMode(v => v==='List' ? 'Week' : 'List')} className="flex-1 sm:flex-none px-2 sm:px-3 py-2 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 hover:bg-neutral-50 text-xs sm:text-sm font-medium">{viewMode==='List' ? 'Week' : 'List'}</button>
-          <button onClick={()=> setModalOpen(true)} className="flex-1 sm:flex-none inline-flex items-center justify-center sm:justify-start gap-1 sm:gap-2 px-2 sm:px-4 py-2 rounded-lg sm:rounded-xl bg-blue-600 text-white hover:bg-blue-700 text-xs sm:text-sm font-medium">
-            <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" /> <span className="hidden sm:inline">New Appointment</span>
+        <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
+          <button onClick={()=> setViewMode(v => v==='List' ? 'Week' : 'List')} className="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 hover:bg-neutral-50 text-[10px] sm:text-xs md:text-sm font-medium active:scale-95">{viewMode==='List' ? 'Week' : 'List'}</button>
+          <button onClick={()=> setModalOpen(true)} className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-blue-600 text-white hover:bg-blue-700 text-[10px] sm:text-xs md:text-sm font-medium active:scale-95">
+            <PlusIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" /> <span className="hidden sm:inline">New Appointment</span><span className="sm:hidden">New</span>
           </button>
         </div>
       </div>
 
       {/* Toolbar chips */}
       <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2">
-        <div className="flex items-center gap-1.5 px-2 sm:px-2 py-1.5 sm:py-1 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 text-xs sm:text-sm">
-          <span className="text-neutral-500 font-medium">Status</span>
-          <select value={status} onChange={(e)=> setStatus(e.target.value)} className="outline-none bg-transparent font-medium">
+        <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 text-xs sm:text-sm min-w-0">
+          <span className="text-neutral-500 font-medium whitespace-nowrap">Status</span>
+          <select value={status} onChange={(e)=> setStatus(e.target.value)} className="outline-none bg-transparent font-medium flex-1 min-w-0">
             <option value="all">All</option>
             <option value="pending">Pending</option>
             <option value="confirmed">Confirmed</option>
@@ -302,36 +302,36 @@ export default function OwnerAppointmentsPage() {
             <option value="cancelled">Canceled</option>
           </select>
         </div>
-        <div className="flex items-center gap-1.5 px-2 sm:px-2 py-1.5 sm:py-1 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 text-xs sm:text-sm flex-1 sm:flex-none">
+        <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 text-[10px] sm:text-xs md:text-sm flex-1 sm:flex-none min-w-0">
           <CalendarDaysIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-500 flex-shrink-0" />
-          <input type="date" suppressHydrationWarning value={fromDate} onChange={(e)=> setFromDate(e.target.value)} className="outline-none bg-transparent font-medium" />
-          <span className="text-neutral-400 px-1">—</span>
-          <input type="date" suppressHydrationWarning value={toDate} onChange={(e)=> setToDate(e.target.value)} className="outline-none bg-transparent font-medium" />
+          <input type="date" suppressHydrationWarning value={fromDate} onChange={(e)=> setFromDate(e.target.value)} className="outline-none bg-transparent font-medium flex-1 min-w-0 text-[10px] sm:text-xs" />
+          <span className="text-neutral-400 px-0.5 flex-shrink-0">—</span>
+          <input type="date" suppressHydrationWarning value={toDate} onChange={(e)=> setToDate(e.target.value)} className="outline-none bg-transparent font-medium flex-1 min-w-0 text-[10px] sm:text-xs" />
         </div>
-        <div className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 flex-1 sm:flex-1 text-xs sm:text-sm">
-          <MagnifyingGlassIcon className="w-4 h-4 text-neutral-500 flex-shrink-0" />
-          <input value={qRaw} onChange={(e)=> setQRaw(e.target.value)} placeholder="Search..." className="w-full outline-none bg-transparent" />
+        <div className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 flex-1 sm:flex-1 text-xs sm:text-sm min-w-0">
+          <MagnifyingGlassIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-500 flex-shrink-0" />
+          <input value={qRaw} onChange={(e)=> setQRaw(e.target.value)} placeholder="Search..." className="w-full outline-none bg-transparent text-xs sm:text-sm" />
         </div>
       </div>
 
       {viewMode === 'Week' ? (
-        <div className="rounded-xl sm:rounded-2xl bg-white/70 backdrop-blur shadow ring-1 ring-gray-100 p-3 sm:p-4 overflow-x-auto">
+        <div className="rounded-lg sm:rounded-xl md:rounded-2xl bg-white/70 backdrop-blur shadow ring-1 ring-gray-100 p-2.5 sm:p-3 md:p-4 overflow-x-auto">
           {(() => {
             const byDay: Record<string, Appointment[]> = {};
             items.forEach(a=>{ (byDay[a.appointment_date] ||= []).push(a); });
             const days = Object.keys(byDay).sort();
-            if (days.length === 0) return <div className="text-xs sm:text-sm text-gray-600 text-center py-4">No appointments in selected range.</div>;
+            if (days.length === 0) return <div className="text-[10px] sm:text-xs md:text-sm text-gray-600 text-center py-3 sm:py-4">No appointments in selected range.</div>;
             return (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4 min-w-min sm:min-w-full">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 md:gap-4 min-w-0">
                 {days.map(d => (
-                  <div key={d} className="rounded-lg sm:rounded-xl bg-white ring-1 ring-gray-100 p-2.5 sm:p-3 min-w-max sm:min-w-auto">
-                    <div className="text-xs sm:text-sm font-semibold text-blue-700 truncate">{formatDatePretty(d)}</div>
-                    <ul className="mt-2 space-y-1.5 sm:space-y-2">
+                  <div key={d} className="rounded-lg sm:rounded-xl bg-white ring-1 ring-gray-100 p-2 sm:p-2.5 md:p-3 min-w-0">
+                    <div className="text-[10px] sm:text-xs md:text-sm font-semibold text-blue-700 truncate">{formatDatePretty(d)}</div>
+                    <ul className="mt-1.5 sm:mt-2 space-y-1.5 sm:space-y-2">
                       {byDay[d].map(a => (
-                        <li key={a.id} className="rounded-lg bg-gray-50 p-2 sm:p-3 text-xs sm:text-sm">
-                          <div className="font-medium text-blue-700">{a.appointment_time}</div>
-                          <div className="text-xs text-gray-600 truncate mt-0.5">{a.reason_for_visit || 'Consultation'}</div>
-                          <span className={`inline-block mt-1.5 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[11px] ${a.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700' : a.status === 'pending' ? 'bg-amber-100 text-amber-700' : a.status === 'completed' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>{a.status}</span>
+                        <li key={a.id} className="rounded-lg bg-gray-50 p-1.5 sm:p-2 md:p-3 text-[10px] sm:text-xs md:text-sm">
+                          <div className="font-medium text-blue-700 truncate">{a.appointment_time}</div>
+                          <div className="text-[10px] sm:text-xs text-gray-600 truncate mt-0.5">{a.reason_for_visit || 'Consultation'}</div>
+                          <span className={`inline-block mt-1 sm:mt-1.5 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] md:text-[11px] whitespace-nowrap ${a.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700' : a.status === 'pending' ? 'bg-amber-100 text-amber-700' : a.status === 'completed' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>{a.status}</span>
                         </li>
                       ))}
                     </ul>
@@ -342,24 +342,24 @@ export default function OwnerAppointmentsPage() {
           })()}
         </div>
       ) : (
-      <div className="rounded-xl sm:rounded-2xl bg-white/70 backdrop-blur shadow ring-1 ring-gray-100">
+      <div className="rounded-lg sm:rounded-xl md:rounded-2xl bg-white/70 backdrop-blur shadow ring-1 ring-gray-100">
         {loading ? (
           <ul className="divide-y animate-pulse">
             {Array.from({ length: 5 }).map((_, i) => (
-              <li key={i} className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div className="space-y-2 flex-1">
-                  <div className="h-3 sm:h-4 w-full sm:w-56 bg-gray-200 rounded" />
-                  <div className="h-2.5 sm:h-3 w-32 sm:w-40 bg-gray-100 rounded" />
+              <li key={i} className="p-2.5 sm:p-3 md:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="space-y-1.5 sm:space-y-2 flex-1 min-w-0">
+                  <div className="h-3 sm:h-4 w-full sm:w-48 md:w-56 bg-gray-200 rounded" />
+                  <div className="h-2.5 sm:h-3 w-24 sm:w-32 md:w-40 bg-gray-100 rounded" />
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <div className="h-5 sm:h-6 w-12 sm:w-16 bg-gray-100 rounded-full" />
-                  <div className="h-7 sm:h-8 w-16 sm:w-20 bg-gray-100 rounded hidden sm:block" />
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                  <div className="h-5 sm:h-6 w-10 sm:w-12 md:w-16 bg-gray-100 rounded-full" />
+                  <div className="h-7 sm:h-8 w-14 sm:w-16 md:w-20 bg-gray-100 rounded hidden sm:block" />
                 </div>
               </li>
             ))}
           </ul>
         ) : items.length === 0 ? (
-          <div className="p-6 sm:p-10 text-center">
+          <div className="p-4 sm:p-6 md:p-10 text-center">
             <div className="mx-auto w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl grid place-items-center bg-blue-50 text-blue-700 mb-2">
               <CalendarDaysIcon className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
@@ -369,26 +369,26 @@ export default function OwnerAppointmentsPage() {
         ) : (
           <ul className="divide-y">
             {items.map(a => (
-              <li key={a.id} className="p-2 sm:p-4">
-                <div className="rounded-lg sm:rounded-xl bg-white shadow-sm ring-1 ring-gray-100 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 hover:shadow-md transition">
+              <li key={a.id} className="p-2 sm:p-3 md:p-4">
+                <div className="rounded-lg sm:rounded-xl bg-white shadow-sm ring-1 ring-gray-100 p-2.5 sm:p-3 md:p-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2.5 sm:gap-3 md:gap-4 hover:shadow-md transition">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start flex-wrap gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
-                      <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-semibold bg-blue-50 text-blue-700 ring-1 ring-blue-200 line-clamp-1">
+                      <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[11px] md:text-xs font-semibold bg-blue-50 text-blue-700 ring-1 ring-blue-200 line-clamp-1">
                         {(a.clinic_id && clinicsMap[a.clinic_id]?.name) || "-"}
                       </span>
                     </div>
-                    <div className="text-[11px] sm:text-xs text-gray-500 truncate mb-1">
+                    <div className="text-[10px] sm:text-[11px] md:text-xs text-gray-500 truncate mb-1">
                       {(a.patient_id && petsMap[a.patient_id]?.name) || "-"} • {(a.veterinarian_id && vetsMap[a.veterinarian_id]?.full_name) || "-"}
                     </div>
-                    <div className="font-medium text-blue-700 text-sm sm:text-base">{formatDatePretty(a.appointment_date)}</div>
-                    <div className="text-xs sm:text-sm text-blue-700">{a.appointment_time}</div>
-                    <div className="text-xs sm:text-sm text-gray-600 line-clamp-2 mt-1"><span className="font-medium">Reason:</span> {a.reason_for_visit || "Consultation"}</div>
+                    <div className="font-medium text-blue-700 text-xs sm:text-sm md:text-base truncate">{formatDatePretty(a.appointment_date)}</div>
+                    <div className="text-[10px] sm:text-xs md:text-sm text-blue-700">{a.appointment_time}</div>
+                    <div className="text-[10px] sm:text-xs md:text-sm text-gray-600 line-clamp-2 mt-1"><span className="font-medium">Reason:</span> {a.reason_for_visit || "Consultation"}</div>
                   </div>
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto flex-shrink-0">
-                    <span className={`px-2 sm:px-2 py-1 rounded-full text-[11px] sm:text-xs font-medium text-center ${a.status === "confirmed" ? "bg-emerald-100 text-emerald-700" : a.status === "pending" ? "bg-amber-100 text-amber-700" : a.status === "completed" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}>{a.status === 'cancelled' ? 'canceled' : a.status}</span>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 sm:gap-2 w-full sm:w-auto flex-shrink-0">
+                    <span className={`px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[11px] md:text-xs font-medium text-center whitespace-nowrap ${a.status === "confirmed" ? "bg-emerald-100 text-emerald-700" : a.status === "pending" ? "bg-amber-100 text-amber-700" : a.status === "completed" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}>{a.status === 'cancelled' ? 'canceled' : a.status}</span>
                     <div className="flex gap-1.5 sm:gap-2 w-full sm:w-auto">
                       {consultByAppt[a.id] && (
-                        <button onClick={()=>viewConsultation(a)} className="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-[11px] sm:text-sm font-medium transition">View</button>
+                        <button onClick={()=>viewConsultation(a)} className="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-[10px] sm:text-[11px] md:text-sm font-medium transition active:scale-95 whitespace-nowrap">View</button>
                       )}
                       {a.status === 'completed' && !reviewByAppt[a.id] && (
                         <ReviewModal
@@ -410,56 +410,68 @@ export default function OwnerAppointmentsPage() {
                           setItems(prev => prev.map(it => it.id===a.id ? { ...it, status:'cancelled' } : it));
                           try { await supabase.from('notifications').insert({ title:'Appointment cancelled', message:`Appointment #${a.id} on ${a.appointment_date} • ${a.appointment_time}`, related_appointment_id: a.id, notification_type:'system' }); } catch {}
                           await Swal.fire({ icon:'success', title:'Canceled', confirmButtonColor:'#2563eb' });
-                        }} className="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 ring-1 ring-red-200 text-[11px] sm:text-sm font-medium transition">Cancel</button>
+                        }} className="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 ring-1 ring-red-200 text-[10px] sm:text-[11px] md:text-sm font-medium transition active:scale-95 whitespace-nowrap">Cancel</button>
                       )}
                       {a.status !== 'cancelled' && (
-                        <button onClick={async ()=> {
-                          const { value: form, isConfirmed } = await Swal.fire<{ date: string; time: string }>({
-                            title: 'Reschedule',
-                            html: `
-                              <div class='text-left grid gap-2 font-[Poppins]'>
-                                <label class='text-xs text-gray-500'>Date</label>
-                                <input id='rs_date' type='date' class='swal2-input' value='${a.appointment_date}'/>
-                                <label class='text-xs text-gray-500 mt-1'>Time</label>
-                                <input id='rs_time' type='time' class='swal2-input' value='${a.appointment_time}'/>
-                              </div>
-                            `,
-                            focusConfirm:false,
-                            preConfirm: () => {
-                              const date = (document.getElementById('rs_date') as HTMLInputElement)?.value;
-                              const time = (document.getElementById('rs_time') as HTMLInputElement)?.value;
-                              if (!date || !time) { Swal.showValidationMessage('Date and time are required'); return; }
-                              const pd = date.split('-').map(Number);
-                              const pt = time.split(':').map(Number);
-                              const dt = new Date(Date.UTC(pd[0], (pd[1]||1)-1, pd[2]||1, pt[0]||0, pt[1]||0, 0));
-                              const min = Date.now() + 30*60*1000; // 30 minutes from now
-                              if (dt.getTime() < min) { Swal.showValidationMessage('Please choose a time at least 30 minutes from now'); return; }
-                              return { date, time } as any;
+                        <button 
+                          disabled={a.status === 'confirmed' || a.status === 'completed' || a.status === 'in_progress'}
+                          title={a.status === 'confirmed' || a.status === 'completed' || a.status === 'in_progress' ? 'Cannot reschedule confirmed appointments. Please contact the clinic to reschedule.' : 'Reschedule appointment'}
+                          onClick={async ()=> {
+                            if (a.status === 'confirmed' || a.status === 'completed' || a.status === 'in_progress') return;
+                            const { value: form, isConfirmed } = await Swal.fire<{ date: string; time: string }>({
+                              title: 'Reschedule',
+                              html: `
+                                <div class='text-left grid gap-2 font-[Poppins]'>
+                                  <label class='text-xs text-gray-500'>Date</label>
+                                  <input id='rs_date' type='date' class='swal2-input' value='${a.appointment_date}'/>
+                                  <label class='text-xs text-gray-500 mt-1'>Time</label>
+                                  <input id='rs_time' type='time' class='swal2-input' value='${a.appointment_time}'/>
+                                </div>
+                              `,
+                              focusConfirm:false,
+                              preConfirm: () => {
+                                const date = (document.getElementById('rs_date') as HTMLInputElement)?.value;
+                                const time = (document.getElementById('rs_time') as HTMLInputElement)?.value;
+                                if (!date || !time) { Swal.showValidationMessage('Date and time are required'); return; }
+                                const pd = date.split('-').map(Number);
+                                const pt = time.split(':').map(Number);
+                                const dt = new Date(Date.UTC(pd[0], (pd[1]||1)-1, pd[2]||1, pt[0]||0, pt[1]||0, 0));
+                                const min = Date.now() + 30*60*1000; // 30 minutes from now
+                                if (dt.getTime() < min) { Swal.showValidationMessage('Please choose a time at least 30 minutes from now'); return; }
+                                return { date, time } as any;
+                              }
+                            });
+                            if (!isConfirmed || !form) return;
+                            let conflicts: any[] | null = [];
+                            let cErr: any = null;
+                            if (a.veterinarian_id) {
+                              const res = await supabase
+                                .from('appointments')
+                                .select('id')
+                                .eq('veterinarian_id', a.veterinarian_id)
+                                .eq('appointment_date', form.date)
+                                .eq('appointment_time', form.time)
+                                .neq('id', a.id)
+                                .limit(1);
+                              conflicts = res.data;
+                              cErr = res.error;
                             }
-                          });
-                          if (!isConfirmed || !form) return;
-                          let conflicts: any[] | null = [];
-                          let cErr: any = null;
-                          if (a.veterinarian_id) {
-                            const res = await supabase
-                              .from('appointments')
-                              .select('id')
-                              .eq('veterinarian_id', a.veterinarian_id)
-                              .eq('appointment_date', form.date)
-                              .eq('appointment_time', form.time)
-                              .neq('id', a.id)
-                              .limit(1);
-                            conflicts = res.data;
-                            cErr = res.error;
-                          }
-                          if (cErr) { await Swal.fire({ icon:'error', title:'Failed', text:cErr.message }); return; }
-                          if ((conflicts?.length || 0) > 0) { await Swal.fire({ icon:'warning', title:'Conflict', text:'This time is not available.' }); return; }
-                          const { error } = await supabase.from('appointments').update({ appointment_date: form.date, appointment_time: form.time }).eq('id', a.id);
-                          if (error) { await Swal.fire({ icon:'error', title:'Failed', text:error.message }); return; }
-                          setItems(prev => prev.map(it => it.id===a.id ? { ...it, appointment_date: form.date, appointment_time: form.time } : it));
-                          try { await supabase.from('notifications').insert({ title:'Appointment rescheduled', message:`Appointment #${a.id} → ${form.date} • ${form.time}`, related_appointment_id: a.id, notification_type:'system' }); } catch {}
-                          await Swal.fire({ icon:'success', title:'Rescheduled', confirmButtonColor:'#2563eb' });
-                        }} className="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 ring-1 ring-purple-200 text-[11px] sm:text-sm font-medium transition">Reschedule</button>
+                            if (cErr) { await Swal.fire({ icon:'error', title:'Failed', text:cErr.message }); return; }
+                            if ((conflicts?.length || 0) > 0) { await Swal.fire({ icon:'warning', title:'Conflict', text:'This time is not available.' }); return; }
+                            const { error } = await supabase.from('appointments').update({ appointment_date: form.date, appointment_time: form.time }).eq('id', a.id);
+                            if (error) { await Swal.fire({ icon:'error', title:'Failed', text:error.message }); return; }
+                            setItems(prev => prev.map(it => it.id===a.id ? { ...it, appointment_date: form.date, appointment_time: form.time } : it));
+                            try { await supabase.from('notifications').insert({ title:'Appointment rescheduled', message:`Appointment #${a.id} → ${form.date} • ${form.time}`, related_appointment_id: a.id, notification_type:'system' }); } catch {}
+                            await Swal.fire({ icon:'success', title:'Rescheduled', confirmButtonColor:'#2563eb' });
+                          }} 
+                          className={`flex-1 sm:flex-none px-2 sm:px-3 py-1.5 rounded-lg text-[10px] sm:text-[11px] md:text-sm font-medium transition active:scale-95 whitespace-nowrap ${
+                            a.status === 'confirmed' || a.status === 'completed' || a.status === 'in_progress'
+                              ? 'bg-gray-100 text-gray-400 ring-1 ring-gray-200 cursor-not-allowed opacity-60'
+                              : 'bg-purple-50 text-purple-700 hover:bg-purple-100 ring-1 ring-purple-200'
+                          }`}
+                        >
+                          Reschedule
+                        </button>
                       )}
                     </div>
                   </div>
@@ -467,7 +479,7 @@ export default function OwnerAppointmentsPage() {
               </li>
             ))}
             <li className="p-2 sm:p-2">
-              <div ref={sentinelRef} className="h-8 w-full text-center text-xs text-gray-400">{hasMore ? 'Loading more…' : '– End of results –'}</div>
+              <div ref={sentinelRef} className="h-6 sm:h-8 w-full text-center text-[10px] sm:text-xs text-gray-400">{hasMore ? 'Loading more…' : '– End of results –'}</div>
             </li>
           </ul>
         )}

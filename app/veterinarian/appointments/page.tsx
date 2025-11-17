@@ -361,20 +361,38 @@ export default function VetAppointmentsPage() {
                     <div className="text-sm font-semibold" style={{ color: PRIMARY }}>{d}</div>
                     <ul className="mt-2 space-y-2">
                       {byDay[d].map(a => (
-                        <li key={a.id} className="rounded-lg bg-gray-50 p-3 flex items-center justify-between">
-                          <div>
-                            <div className="font-medium" style={{ color: PRIMARY }}>{a.appointment_time}</div>
-                            <div className="text-xs text-gray-600 truncate">{a.reason_for_visit || 'Consultation'}</div>
+                        <li key={a.id} className="rounded-lg bg-gray-50 p-3 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium" style={{ color: PRIMARY }}>{a.appointment_time}</div>
+                              <div className="text-xs text-gray-600 truncate">{a.reason_for_visit || 'Consultation'}</div>
+                              <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${a.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700' : a.status === 'pending' ? 'bg-amber-100 text-amber-700' : a.status === 'completed' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>{a.status.replace('_', ' ')}</span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className={`px-2 py-1 rounded-full text-[11px] ${a.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700' : a.status === 'pending' ? 'bg-amber-100 text-amber-700' : a.status === 'completed' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>{a.status}</span>
-                            <button onClick={() => showDetails(a)} className="px-2 py-1 rounded-lg bg-white ring-1 ring-gray-200 text-xs">Details</button>
+                          <div className="flex flex-wrap items-center gap-1.5">
                             {a.status === 'completed' ? (
-                              <span className="px-2 py-1 rounded-lg bg-emerald-100 text-emerald-700 text-xs">Done</span>
+                              <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 text-xs font-medium">Done</span>
                             ) : (
-                              <Link href={`/veterinarian/consultations/${a.id}`} className="px-2 py-1 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700">Consult</Link>
+                              <Link href={`/veterinarian/consultations/${a.id}`} className="px-2.5 py-1 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 font-medium">Consult</Link>
                             )}
-                            <button onClick={() => reschedule(a)} className="px-2 py-1 rounded-lg bg-white ring-1 ring-gray-200 text-xs">Reschedule</button>
+                            <button onClick={() => showDetails(a)} className="px-2.5 py-1 rounded-lg bg-white ring-1 ring-gray-200 text-xs hover:bg-gray-50">Details</button>
+                            <button onClick={() => reschedule(a)} className="px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700 text-xs hover:bg-gray-200 ring-1 ring-gray-300">Reschedule</button>
+                            {a.status === 'pending' && (
+                              <button 
+                                onClick={() => updateStatus(a.id, a.status, "confirmed", "Confirm this appointment?")}
+                                className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-xs hover:bg-emerald-700 font-medium"
+                              >
+                                Confirm
+                              </button>
+                            )}
+                            {canTransition(a.status, 'cancelled') && (
+                              <button 
+                                onClick={() => updateStatus(a.id, a.status, "cancelled", "Cancel this appointment?")}
+                                className="px-2.5 py-1 rounded-lg bg-red-50 text-red-700 text-xs hover:bg-red-100 ring-1 ring-red-200"
+                              >
+                                Cancel
+                              </button>
+                            )}
                           </div>
                         </li>
                       ))}
@@ -426,39 +444,70 @@ export default function VetAppointmentsPage() {
                     <div className="text-sm text-gray-700">{formatTime(a.appointment_time)}</div>
                     <div className="text-sm text-gray-600 mt-1 truncate">Reason for consultation: {a.reason_for_visit || 'Consultation'}</div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className={`px-2 py-1 rounded-full text-xs ${a.status === "confirmed" ? "bg-emerald-100 text-emerald-700" : a.status === "pending" ? "bg-amber-100 text-amber-700" : a.status === "completed" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}>{a.status}</span>
-                    <button title="View details" onClick={() => showDetails(a)} className="px-3 py-1 rounded-lg bg-white ring-1 ring-gray-200 hover:bg-gray-50 text-sm">Details</button>
-                    {a.status === 'completed' ? (
-                      <span title="Consultation done" className="px-3 py-1 rounded-lg bg-emerald-100 text-emerald-700 text-sm">Done</span>
-                    ) : (
-                      <Link title="Open consultation" href={`/veterinarian/consultations/${a.id}`} className="px-3 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-sm">Consult</Link>
-                    )}
-                    <button title="Reschedule appointment" onClick={() => reschedule(a)} className="px-3 py-1 rounded-lg bg-white ring-1 ring-gray-200 hover:bg-gray-50 text-sm">Reschedule</button>
-                    <button
-                      title={a.status === 'pending' ? 'Confirm before proceeding' : 'Already confirmed'}
-                      disabled={a.status !== 'pending'}
-                      onClick={() => updateStatus(a.id, a.status, "confirmed", "Confirm this appointment?")}
-                      className={`px-3 py-1 rounded-lg text-sm ${a.status !== 'pending' ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white ring-1 ring-gray-200 hover:bg-gray-50'}`}
-                    >
-                      Confirm
-                    </button>
-                    <button
-                      title={a.status === 'pending' ? 'Cannot complete while pending' : 'Mark as completed'}
-                      disabled={!canTransition(a.status, 'completed')}
-                      onClick={() => updateStatus(a.id, a.status, "completed", "Mark as completed?")}
-                      className={`px-3 py-1 rounded-lg text-sm ${!canTransition(a.status, 'completed') ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white ring-1 ring-gray-200 hover:bg-gray-50'}`}
-                    >
-                      Complete
-                    </button>
-                    <button
-                      title={canTransition(a.status, 'cancelled') ? 'Cancel appointment' : 'Cannot cancel completed appointments'}
-                      disabled={!canTransition(a.status, 'cancelled')}
-                      onClick={() => updateStatus(a.id, a.status, "cancelled", "Cancel this appointment?")}
-                      className={`px-3 py-1 rounded-lg text-sm ${!canTransition(a.status, 'cancelled') ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white ring-1 ring-gray-200 hover:bg-gray-50'}`}
-                    >
-                      Cancel
-                    </button>
+                  <div className="flex flex-col items-end gap-2 shrink-0">
+                    {/* Primary Action - Consult */}
+                    <div className="flex items-center gap-2">
+                      {a.status === 'completed' ? (
+                        <span title="Consultation done" className="px-4 py-2 rounded-lg bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 text-sm font-medium">Completed</span>
+                      ) : (
+                        <Link 
+                          title="Open consultation" 
+                          href={`/veterinarian/consultations/${a.id}`} 
+                          className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-sm font-medium shadow-sm hover:shadow transition"
+                        >
+                          Start Consultation
+                        </Link>
+                      )}
+                    </div>
+                    
+                    {/* Status Actions */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {a.status === 'pending' && (
+                        <button
+                          title="Confirm this appointment"
+                          onClick={() => updateStatus(a.id, a.status, "confirmed", "Confirm this appointment?")}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-medium shadow-sm hover:shadow transition"
+                        >
+                          Confirm
+                        </button>
+                      )}
+                      {canTransition(a.status, 'completed') && (
+                        <button
+                          title="Mark appointment as completed"
+                          onClick={() => updateStatus(a.id, a.status, "completed", "Mark as completed?")}
+                          className="px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-sm font-medium shadow-sm hover:shadow transition"
+                        >
+                          Complete
+                        </button>
+                      )}
+                    </div>
+                    
+                    {/* Secondary Actions */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button 
+                        title="View details" 
+                        onClick={() => showDetails(a)} 
+                        className="px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 ring-1 ring-gray-300 text-sm transition"
+                      >
+                        Details
+                      </button>
+                      <button 
+                        title="Reschedule appointment" 
+                        onClick={() => reschedule(a)} 
+                        className="px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 ring-1 ring-gray-300 text-sm transition"
+                      >
+                        Reschedule
+                      </button>
+                      {canTransition(a.status, 'cancelled') && (
+                        <button
+                          title="Cancel appointment"
+                          onClick={() => updateStatus(a.id, a.status, "cancelled", "Cancel this appointment?")}
+                          className="px-3 py-1.5 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 ring-1 ring-red-200 text-sm font-medium transition"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </li>

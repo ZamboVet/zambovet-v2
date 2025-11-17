@@ -52,7 +52,13 @@ export default function AdminSidebar({ items, pathname, open }: { items: AdminNa
 
   const signOut = async () => {
     try { await supabase.auth.signOut(); } catch {}
-    router.replace('/login');
+    try {
+      localStorage.removeItem('po_avatar_url');
+      localStorage.removeItem('po_sidebar_collapsed');
+      localStorage.removeItem('vet_sidebar_collapsed');
+      localStorage.removeItem('ownerNotif');
+    } catch {}
+    window.location.href = '/login';
   };
   return (
     <aside className={`fixed inset-y-0 left-0 z-40 ${collapsed ? "w-20" : "w-72 lg:w-[280px]"} lg:sticky lg:top-0 lg:h-screen transform ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} transition-all bg-gradient-to-b from-blue-500 to-blue-700 text-white shadow-2xl flex flex-col`}>
@@ -78,6 +84,7 @@ export default function AdminSidebar({ items, pathname, open }: { items: AdminNa
                 key={it.href}
                 href={it.href}
                 title={collapsed ? it.label : undefined}
+                onClick={() => { try { if (window.matchMedia && window.matchMedia('(max-width: 1023px)').matches) { window.dispatchEvent(new CustomEvent('toggle-admin-sidebar')); } } catch {} }}
                 className={`group relative flex items-center ${collapsed ? "justify-center" : "gap-3 px-3"} py-2.5 rounded-2xl transition ${active ? "bg-white/15 text-white" : "hover:bg-white/10 text-white"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2`}
               >
                 {active && !collapsed && <span className="absolute left-1 top-1/2 -translate-y-1/2 h-6 w-1.5 rounded-full bg-blue-200/90" />}

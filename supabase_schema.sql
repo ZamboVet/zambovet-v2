@@ -88,6 +88,17 @@ CREATE TABLE public.consultation_prescriptions (
   CONSTRAINT consultation_prescriptions_pkey PRIMARY KEY (id),
   CONSTRAINT consultation_prescriptions_consultation_id_fkey FOREIGN KEY (consultation_id) REFERENCES public.consultations(id)
 );
+CREATE TABLE public.consultation_vitals (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  consultation_id bigint NOT NULL,
+  measured_at timestamp with time zone DEFAULT now(),
+  weight numeric,
+  temperature numeric,
+  heart_rate integer,
+  notes text,
+  CONSTRAINT consultation_vitals_pkey PRIMARY KEY (id),
+  CONSTRAINT consultation_vitals_consultation_id_fkey FOREIGN KEY (consultation_id) REFERENCES public.consultations(id)
+);
 CREATE TABLE public.consultations (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   appointment_id bigint NOT NULL UNIQUE,
@@ -389,4 +400,3 @@ CREATE TABLE public.veterinarians (
   CONSTRAINT veterinarians_clinic_id_fkey FOREIGN KEY (clinic_id) REFERENCES public.clinics(id),
   CONSTRAINT veterinarians_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
 );
-  

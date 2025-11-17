@@ -6,6 +6,7 @@ import Image from "next/image";
 import Swal from "sweetalert2";
 import { supabase } from "../../lib/supabaseClient";
 import { ArrowUpTrayIcon } from "@heroicons/react/24/outline";
+import TermsAndConditionsModal from "../components/TermsAndConditionsModal";
 
 const PRIMARY = "#0032A0";
 const SECONDARY = "#b3c7e6";
@@ -33,6 +34,9 @@ export default function SignupPage() {
   const [idInputKey, setIdInputKey] = useState(0);
   const [vetLicenseNumber, setVetLicenseNumber] = useState("");
   const [otpVerified, setOtpVerified] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsModalOpen, setTermsModalOpen] = useState(false);
+  const [termsError, setTermsError] = useState<string | null>(null);
 
   const getPasswordStrength = (pwd: string) => {
     if (!pwd) return { score: 0, label: "", color: "" };
@@ -118,6 +122,12 @@ export default function SignupPage() {
         Swal.fire({ icon: "error", title: "Mismatch", text: "Passwords do not match." });
         return;
       }
+      if (!termsAccepted) {
+        setTermsError("You must accept the Terms & Conditions to continue.");
+        Swal.fire({ icon: "warning", title: "Terms Required", text: "Please accept the Terms & Conditions to proceed." });
+        return;
+      }
+      setTermsError(null);
       setStep(2);
       return;
     }
@@ -293,6 +303,28 @@ export default function SignupPage() {
         const { data: url } = supabase.storage.from("veterinarian-documents").getPublicUrl(data.path);
         return url.publicUrl;
       };
+      // Check if license number already exists
+      const { data: existingApp } = await supabase
+        .from("veterinarian_applications")
+        .select("id, email, status")
+        .eq("license_number", vetLicenseNumber.trim())
+        .maybeSingle();
+      
+      if (existingApp) {
+        throw new Error("LICENSE_EXISTS: This license number has already been used in a veterinarian application. Please contact support if you believe this is an error.");
+      }
+
+      // Also check if email already exists in applications (schema has UNIQUE constraint on email)
+      const { data: existingEmailApp } = await supabase
+        .from("veterinarian_applications")
+        .select("id, status")
+        .eq("email", email.trim().toLowerCase())
+        .maybeSingle();
+      
+      if (existingEmailApp) {
+        throw new Error("EMAIL_APPLICATION_EXISTS: An application with this email address already exists. Please contact support if you need to update your application.");
+      }
+
       const professional_license_url = await up(vetLicenseFile!, `professional-license/${uid}/${Date.now()}-${vetLicenseFile!.name}`);
       const business_permit_url = await up(businessPermitFile!, `business-permits/${uid}/${Date.now()}-${businessPermitFile!.name}`);
       const government_id_url = await up(governmentIdFile!, `government-ids/${uid}/${Date.now()}-${governmentIdFile!.name}`);
@@ -300,13 +332,22 @@ export default function SignupPage() {
         email,
         full_name: fullName,
         phone,
-        license_number: vetLicenseNumber,
+        license_number: vetLicenseNumber.trim(),
         business_permit_url,
         professional_license_url,
         government_id_url,
         status: "pending",
       });
-      if (appErr) throw appErr;
+      if (appErr) {
+        // Handle duplicate key errors more gracefully
+        if (appErr.message?.includes("license_number") || appErr.code === "23505") {
+          throw new Error("LICENSE_EXISTS: This license number has already been used. Please contact support if you believe this is an error.");
+        }
+        if (appErr.message?.includes("email") || appErr.message?.includes("veterinarian_applications_email")) {
+          throw new Error("EMAIL_APPLICATION_EXISTS: An application with this email address already exists. Please contact support if you need to update your application.");
+        }
+        throw appErr;
+      }
       await Swal.fire({ icon: "success", title: "Application submitted", text: "We will notify you once the admin verifies your documents." });
       window.location.href = "/login";
     } catch (err: any) {
@@ -320,6 +361,22 @@ export default function SignupPage() {
         });
       } else if (msg?.startsWith?.("EMAIL_IN_USE")) {
         await Swal.fire({ icon: "error", title: "Email already in use", text: "Please use a different email or sign in to the existing account." });
+      } else if (msg?.startsWith?.("LICENSE_EXISTS")) {
+        const detailMsg = msg.replace("LICENSE_EXISTS: ", "");
+        await Swal.fire({ 
+          icon: "error", 
+          title: "License number already registered", 
+          text: detailMsg || "This license number has already been used in a veterinarian application. Please contact support if you believe this is an error.",
+          footer: '<a href="/login">Try signing in instead</a>'
+        });
+      } else if (msg?.startsWith?.("EMAIL_APPLICATION_EXISTS")) {
+        const detailMsg = msg.replace("EMAIL_APPLICATION_EXISTS: ", "");
+        await Swal.fire({ 
+          icon: "warning", 
+          title: "Application already exists", 
+          text: detailMsg || "An application with this email address already exists. Please contact support if you need to update your application.",
+          footer: '<a href="/login">Try signing in instead</a>'
+        });
       } else if (status === 429) {
         await Swal.fire({ icon: "warning", title: "Too many requests", text: "Please wait a minute and try again." });
       } else {
@@ -501,6 +558,36 @@ export default function SignupPage() {
                     </button>
                   </div>
                 </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      id="terms"
+                      checked={termsAccepted}
+                      onChange={(e) => {
+                        setTermsAccepted(e.target.checked);
+                        setTermsError(null);
+                      }}
+                      className="mt-1 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      style={{ accentColor: PRIMARY }}
+                    />
+                    <label htmlFor="terms" className="text-sm text-black/70 cursor-pointer">
+                      I agree to the{" "}
+                      <button
+                        type="button"
+                        onClick={() => setTermsModalOpen(true)}
+                        className="text-blue-700 hover:underline font-medium"
+                        style={{ color: PRIMARY }}
+                      >
+                        Terms & Conditions
+                      </button>
+                    </label>
+                  </div>
+                  {termsError && (
+                    <div className="text-sm text-red-600 ml-6">{termsError}</div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -670,6 +757,11 @@ export default function SignupPage() {
           </div>
         </div>
       </div>
+
+      <TermsAndConditionsModal
+        open={termsModalOpen}
+        onClose={() => setTermsModalOpen(false)}
+      />
     </div>
   );
 }

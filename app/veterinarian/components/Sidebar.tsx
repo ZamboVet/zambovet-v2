@@ -51,11 +51,29 @@ export default function Sidebar({ open, onClose, primary }: Props) {
   const logout = async () => {
     const res = await Swal.fire({ icon: "question", title: "Sign out?", showCancelButton: true, confirmButtonText: "Sign out" });
     if (!res.isConfirmed) return;
-    const { error } = await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut({ scope: "global" as any });
     if (error) {
       await Swal.fire({ icon: "error", title: "Failed", text: error.message });
       return;
     }
+    try {
+      // Clear app-specific keys
+      localStorage.removeItem('po_avatar_url');
+      localStorage.removeItem('po_sidebar_collapsed');
+      localStorage.removeItem('vet_sidebar_collapsed');
+      localStorage.removeItem('ownerNotif');
+      // Clear Supabase auth keys
+      try {
+        const keys: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (!k) continue;
+          if (k.startsWith('sb-') || k.startsWith('supabase')) keys.push(k);
+        }
+        keys.forEach(k => localStorage.removeItem(k));
+      } catch {}
+      try { sessionStorage.clear(); } catch {}
+    } catch {}
     await Swal.fire({ icon: "success", title: "Signed out" });
     window.location.href = "/login";
   };
@@ -80,6 +98,7 @@ export default function Sidebar({ open, onClose, primary }: Props) {
               key={item.href}
               href={item.href}
               title={collapsed ? `${item.label}\n${item.sub}` : undefined}
+              onClick={() => { try { onClose(); } catch {} }}
               className={`group relative flex items-center ${collapsed ? "justify-center" : "gap-3 px-3"} ${collapsed ? "py-2" : "py-2.5"} rounded-2xl transition ${active ? "bg-white/15 ring-1 ring-white/20" : "hover:bg-white/10 ring-1 ring-white/0 hover:ring-white/10"}`}
             >
               {active && !collapsed && <span className="absolute left-1 top-1/2 -translate-y-1/2 h-6 w-1 rounded-full bg-white" />}

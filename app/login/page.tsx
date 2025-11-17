@@ -6,6 +6,7 @@ import Image from "next/image";
 import Swal from "sweetalert2";
 import { supabase } from "../../lib/supabaseClient";
 import { useRouter } from "next/navigation";
+import ForgotPasswordModal from "../components/ForgotPasswordModal";
 
 const PRIMARY = "#0032A0";
 const SECONDARY = "#b3c7e6";
@@ -17,6 +18,8 @@ export default function LoginPage() {
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
 
   // Helper to create profile if missing and route accordingly
   const ensureProfileAndRoute = async (user: any) => {
@@ -97,6 +100,10 @@ export default function LoginPage() {
       }
     })();
   }, [router]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -292,8 +299,10 @@ export default function LoginPage() {
     }
   };
 
+  if (!mounted) return null;
+
   return (
-    <div className="min-h-screen grid lg:grid-cols-2">
+    <div suppressHydrationWarning className="min-h-screen grid lg:grid-cols-2">
       {/* Left image panel */}
       <div className="relative hidden lg:block">
         <Image src="/vetbg.jpg" alt="Veterinary care" fill priority className="object-cover w-full h-full" />
@@ -380,10 +389,22 @@ export default function LoginPage() {
 
           <div className="mt-4 flex items-center justify-between text-sm">
             <Link href="/signup" className="text-blue-700 hover:underline">Create an account</Link>
-            <Link href="#" className="text-blue-700/80 hover:underline">Forgot password?</Link>
+            <button
+              type="button"
+              onClick={() => setForgotPasswordOpen(true)}
+              className="text-blue-700/80 hover:underline"
+              style={{ color: PRIMARY }}
+            >
+              Forgot password?
+            </button>
           </div>
         </div>
       </div>
+
+      <ForgotPasswordModal
+        open={forgotPasswordOpen}
+        onClose={() => setForgotPasswordOpen(false)}
+      />
     </div>
   );
 }

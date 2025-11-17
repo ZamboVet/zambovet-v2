@@ -24,6 +24,33 @@ function fmtWeight(w?: number | null) {
   return Number.isFinite(n) ? `${n} kg` : "—";
 }
 
+function ageFrom(dob: string | null) {
+  if (!dob) return "—";
+  const birth = new Date(dob);
+  if (isNaN(birth.getTime())) return "—";
+  const now = new Date();
+  let years = now.getFullYear() - birth.getFullYear();
+  let months = now.getMonth() - birth.getMonth();
+  let days = now.getDate() - birth.getDate();
+  if (days < 0) {
+    const prevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    days += prevMonth.getDate();
+    months -= 1;
+  }
+  if (months < 0) {
+    months += 12;
+    years -= 1;
+  }
+  const parts: string[] = [];
+  if (years > 0) parts.push(`${years} year${years > 1 ? 's' : ''}`);
+  if (months > 0) parts.push(`${months} month${months > 1 ? 's' : ''}`);
+  if (years === 0 && months === 0) {
+    const d = Math.max(days, 0);
+    parts.push(`${d} day${d !== 1 ? 's' : ''}`);
+  }
+  return parts.join(", ") || "0 days";
+}
+
 export default function ViewPetModal({ open, pet, onClose }: ViewPetModalProps) {
   const modalRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -121,6 +148,10 @@ export default function ViewPetModal({ open, pet, onClose }: ViewPetModalProps) 
                 <div>
                   <div className="text-xs text-neutral-500">Date of Birth</div>
                   <div className="font-medium">{pet.date_of_birth || "—"}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-neutral-500">Age</div>
+                  <div className="font-medium">{ageFrom(pet.date_of_birth)}</div>
                 </div>
                 <div>
                   <div className="text-xs text-neutral-500">ID</div>

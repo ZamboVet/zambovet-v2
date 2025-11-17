@@ -24,6 +24,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, []);
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-white bg-[radial-gradient(circle_at_80%_0%,rgba(37,99,235,0.08),transparent_60%)] text-gray-900">
+      {/* Mobile overlay when sidebar is open */}
+      {open && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-[1px] lg:hidden"
+          onClick={() => setOpen(false)}
+          aria-hidden="true"
+        />
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] min-h-screen">
         <AdminSidebar items={items} pathname={pathname} open={open} />
 
@@ -38,4 +46,3 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     </div>
   );
 }
-

@@ -52,17 +52,32 @@ export default function AdminTopbar() {
   const doLogout = async () => {
     const res = await Swal.fire({ icon: "question", title: "Sign out?", showCancelButton: true, confirmButtonText: "Sign out" });
     if (!res.isConfirmed) return;
-    const { error } = await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut({ scope: "global" as any });
     if (error) {
       await Swal.fire({ icon: "error", title: "Failed", text: error.message });
       return;
     }
     setOpen(false);
-    await Swal.fire({ icon: "success", title: "Signed out" });
-    router.replace("/login");
+    try {
+      localStorage.removeItem('po_avatar_url');
+      localStorage.removeItem('po_sidebar_collapsed');
+      localStorage.removeItem('vet_sidebar_collapsed');
+      localStorage.removeItem('ownerNotif');
+      try {
+        const keys: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (!k) continue;
+          if (k.startsWith('sb-') || k.startsWith('supabase')) keys.push(k);
+        }
+        keys.forEach(k => localStorage.removeItem(k));
+      } catch {}
+      try { sessionStorage.clear(); } catch {}
+    } catch {}
+    window.location.href = "/login";
   };
   return (
-    <header className="relative z-50 h-16 flex items-center justify-between px-4 sm:px-6 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 shadow-sm">
+    <header className="relative z-50 h-16 flex items-center justify-between px-4 sm:px-6 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 shadow-sm" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
       <div className="flex items-center gap-3">
         <button onClick={() => window.dispatchEvent(new CustomEvent("toggle-admin-sidebar"))} className="lg:hidden px-3 py-2 rounded-lg border bg-white">Menu</button>
         <nav className="hidden sm:flex items-center gap-2 text-sm text-gray-500">

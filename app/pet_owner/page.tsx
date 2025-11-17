@@ -443,8 +443,8 @@ export default function PetOwnerDashboard() {
 
   return (
     <div className="min-h-dvh bg-neutral-50">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6 pb-10">
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 lg:px-8 pt-4 sm:pt-5 md:pt-6 pb-6 sm:pb-8 md:pb-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
           {loading
             ? Array.from({ length: 3 }).map((_, i) => (
                 <div key={`sk-${i}`} className="rounded-xl border border-neutral-200 bg-white shadow-sm p-4 animate-pulse">
@@ -458,35 +458,35 @@ export default function PetOwnerDashboard() {
                 </div>
               ))
             : statCards.map((s) => (
-                <div key={s.key} className="rounded-xl border border-neutral-200 bg-white shadow-sm">
-                  <div className="flex items-center gap-4 p-4">
-                    <div className={`h-10 w-10 ${s.accent} rounded-lg text-white flex items-center justify-center`}>
-                      <s.icon className="h-5 w-5" />
+                <div key={s.key} className="rounded-lg sm:rounded-xl border border-neutral-200 bg-white shadow-sm">
+                  <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4">
+                    <div className={`h-9 w-9 sm:h-10 sm:w-10 ${s.accent} rounded-lg text-white flex items-center justify-center flex-shrink-0`}>
+                      <s.icon className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
-                    <div className="flex-1">
-                      <p className="text-sm text-neutral-500">{s.label}</p>
-                      <p className="text-xl font-semibold">{s.value}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs sm:text-sm text-neutral-500 truncate">{s.label}</p>
+                      <p className="text-lg sm:text-xl font-semibold">{s.value}</p>
                     </div>
                   </div>
                 </div>
               ))}
         </div>
 
-        <div className="mt-5 grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <div className="rounded-xl border border-neutral-200 bg-white shadow-sm">
-            <div className="p-4 border-b border-neutral-100 font-medium">Quick Actions</div>
-            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="mt-4 sm:mt-5 grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
+          <div className="rounded-lg sm:rounded-xl border border-neutral-200 bg-white shadow-sm">
+            <div className="p-3 sm:p-4 border-b border-neutral-100 font-medium text-sm sm:text-base">Quick Actions</div>
+            <div className="p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               {quick.map((q) => (
                 <button
                   key={q.key}
                   onClick={() => onQuick(q.key)}
-                  className="group rounded-xl border border-neutral-200 bg-white hover:shadow-md transition overflow-hidden text-left"
+                  className="group rounded-lg sm:rounded-xl border border-neutral-200 bg-white hover:shadow-md transition overflow-hidden text-left active:scale-[0.98]"
                 >
-                  <div className={`${q.tint} p-4 flex items-center gap-3`}>
-                    <div className={`${q.color} text-white h-10 w-10 rounded-lg flex items-center justify-center`}>
-                      <q.icon className="h-5 w-5" />
+                  <div className={`${q.tint} p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3`}>
+                    <div className={`${q.color} text-white h-9 w-9 sm:h-10 sm:w-10 rounded-lg flex items-center justify-center flex-shrink-0`}>
+                      <q.icon className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
-                    <div className={`${q.text} font-medium`}>{q.label}</div>
+                    <div className={`${q.text} font-medium text-sm sm:text-base`}>{q.label}</div>
                   </div>
                 </button>
               ))}
@@ -494,31 +494,34 @@ export default function PetOwnerDashboard() {
           </div>
 
           <div className="h-full">
-            <div className="h-full rounded-xl border border-neutral-200 bg-white shadow-sm flex flex-col">
-              <div className="p-4 border-b border-neutral-100 font-medium flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2"><CalendarDaysIcon className="h-5 w-5 text-blue-600" /><span>Upcoming Appointments</span></div>
-                <Link href="/pet_owner/appointments" className="text-sm text-blue-600 hover:underline">See all</Link>
+            <div className="h-full rounded-lg sm:rounded-xl border border-neutral-200 bg-white shadow-sm flex flex-col">
+              <div className="p-3 sm:p-4 border-b border-neutral-100 font-medium text-sm sm:text-base flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                  <CalendarDaysIcon className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 flex-shrink-0" />
+                  <span className="truncate">Upcoming Appointments</span>
+                </div>
+                <Link href="/pet_owner/appointments" className="text-xs sm:text-sm text-blue-600 hover:underline flex-shrink-0 whitespace-nowrap">See all</Link>
               </div>
               <ul className="divide-y divide-neutral-100">
                 {loading && (
                   <>
                     {Array.from({ length: 3 }).map((_, i) => (
-                      <li key={`up-sk-${i}`} className="p-4 animate-pulse">
-                        <div className="h-3 w-40 bg-neutral-200 rounded mb-2" />
-                        <div className="h-3 w-56 bg-neutral-200 rounded mb-1" />
-                        <div className="h-2 w-24 bg-neutral-200 rounded" />
+                      <li key={`up-sk-${i}`} className="p-3 sm:p-4 animate-pulse">
+                        <div className="h-3 w-32 sm:w-40 bg-neutral-200 rounded mb-2" />
+                        <div className="h-3 w-40 sm:w-56 bg-neutral-200 rounded mb-1" />
+                        <div className="h-2 w-20 sm:w-24 bg-neutral-200 rounded" />
                       </li>
                     ))}
                   </>
                 )}
                 {!loading && upcoming.map((u) => (
-                  <li key={u.id} className="p-4 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="font-medium">{u.pet} • {u.type}</p>
-                      <p className="text-sm text-neutral-500">{u.clinic}</p>
-                      <p className="text-xs text-neutral-400">{u.dateLabel}</p>
+                  <li key={u.id} className="p-3 sm:p-4 flex items-start sm:items-center justify-between gap-2 sm:gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm sm:text-base truncate">{u.pet} • {u.type}</p>
+                      <p className="text-xs sm:text-sm text-neutral-500 truncate">{u.clinic}</p>
+                      <p className="text-[10px] sm:text-xs text-neutral-400 truncate">{u.dateLabel}</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                       <button
                         onClick={async () => {
                           const { value: form, isConfirmed } = await Swal.fire<{ date: string; time: string }>({
@@ -570,7 +573,7 @@ export default function PetOwnerDashboard() {
                           await Swal.fire({ icon:'success', title:'Rescheduled', confirmButtonColor: swalConfirmColor });
                           await refreshNow();
                         }}
-                        className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 hover:bg-neutral-50"
+                        className="px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-lg border border-neutral-200 hover:bg-neutral-50 active:scale-95 whitespace-nowrap"
                       >
                         Reschedule
                       </button>
@@ -587,7 +590,7 @@ export default function PetOwnerDashboard() {
                           await Swal.fire({ icon:'success', title:'Canceled', confirmButtonColor: swalConfirmColor });
                           await refreshNow();
                         }}
-                        className="px-3 py-1.5 text-sm rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
+                        className="px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-lg bg-red-50 text-red-600 hover:bg-red-100 active:scale-95 whitespace-nowrap"
                       >
                         Cancel
                       </button>
@@ -619,13 +622,16 @@ export default function PetOwnerDashboard() {
           </div>
         )}
 
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        <div className="mt-4 sm:mt-5 md:mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
           <div className="h-full">
-            <div className="h-full rounded-xl border border-neutral-200 bg-white shadow-sm flex flex-col">
-              <div className="p-4 border-b border-neutral-100 font-medium flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2"><ClipboardDocumentListIcon className="h-5 w-5 text-indigo-600" /><span>Recent Activity</span></div>
+            <div className="h-full rounded-lg sm:rounded-xl border border-neutral-200 bg-white shadow-sm flex flex-col">
+              <div className="p-3 sm:p-4 border-b border-neutral-100 font-medium text-sm sm:text-base flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                  <ClipboardDocumentListIcon className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600 flex-shrink-0" />
+                  <span className="truncate">Recent Activity</span>
+                </div>
               </div>
-              <ul className="p-4 space-y-3">
+              <ul className="p-3 sm:p-4 space-y-2.5 sm:space-y-3">
                 {loading && (
                   <>
                     {Array.from({ length: 3 }).map((_, i) => (
@@ -640,11 +646,11 @@ export default function PetOwnerDashboard() {
                   </>
                 )}
                 {!loading && activities.map((a) => (
-                  <li key={a.id} className="flex items-start gap-3">
-                    <span className="mt-1 h-2 w-2 rounded-full bg-indigo-600"></span>
-                    <div>
-                      <p className="text-sm">{a.label}</p>
-                      <p className="text-xs text-neutral-500">{a.time}</p>
+                  <li key={a.id} className="flex items-start gap-2 sm:gap-3">
+                    <span className="mt-1.5 h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-indigo-600 flex-shrink-0"></span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-sm truncate">{a.label}</p>
+                      <p className="text-[10px] sm:text-xs text-neutral-500">{a.time}</p>
                     </div>
                   </li>
                 ))}
@@ -652,78 +658,79 @@ export default function PetOwnerDashboard() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-neutral-200 bg-white shadow-sm">
-            <div className="p-4 border-b border-neutral-100 font-medium">Pet Care Summary</div>
-            <div className="p-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="flex items-center justify-between p-3 rounded-lg bg-neutral-50">
-                  <span className="text-neutral-600">Total Pets</span>
-                  <span className="font-semibold">{totalPets}</span>
+          <div className="rounded-lg sm:rounded-xl border border-neutral-200 bg-white shadow-sm">
+            <div className="p-3 sm:p-4 border-b border-neutral-100 font-medium text-sm sm:text-base">Pet Care Summary</div>
+            <div className="p-3 sm:p-4">
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:gap-4 text-xs sm:text-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2.5 sm:p-3 rounded-lg bg-neutral-50 gap-1 sm:gap-0">
+                  <span className="text-neutral-600 text-[10px] sm:text-xs">Total Pets</span>
+                  <span className="font-semibold text-sm sm:text-base">{totalPets}</span>
                 </div>
-                <div className="flex items-center justify-between p-3 rounded-lg bg-neutral-50">
-                  <span className="text-neutral-600">Upcoming Appointments</span>
-                  <span className="font-semibold">{upcomingCount}</span>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2.5 sm:p-3 rounded-lg bg-neutral-50 gap-1 sm:gap-0">
+                  <span className="text-neutral-600 text-[10px] sm:text-xs">Upcoming</span>
+                  <span className="font-semibold text-sm sm:text-base">{upcomingCount}</span>
                 </div>
-                <div className="flex items-center justify-between p-3 rounded-lg bg-neutral-50">
-                  <span className="text-neutral-600">Today's Appointments</span>
-                  <span className="font-semibold text-green-600">{todayCount}</span>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2.5 sm:p-3 rounded-lg bg-neutral-50 gap-1 sm:gap-0">
+                  <span className="text-neutral-600 text-[10px] sm:text-xs">Today</span>
+                  <span className="font-semibold text-sm sm:text-base text-green-600">{todayCount}</span>
                 </div>
-                <div className="flex items-center justify-between p-3 rounded-lg bg-neutral-50">
-                  <span className="text-neutral-600">Last Visit</span>
-                  <span className="font-semibold">{lastVisit}</span>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2.5 sm:p-3 rounded-lg bg-neutral-50 gap-1 sm:gap-0">
+                  <span className="text-neutral-600 text-[10px] sm:text-xs">Last Visit</span>
+                  <span className="font-semibold text-sm sm:text-base truncate">{lastVisit}</span>
                 </div>
               </div>
             </div>
           </div>
 
           <div className="h-full">
-            <div className="h-full rounded-xl border border-neutral-200 bg-white shadow-sm flex flex-col">
-              <div className="p-4 border-b border-neutral-100 font-medium flex items-center gap-2">
-                <HomeModernIcon className="h-5 w-5 text-amber-600" />
-                <span>Recommended Clinics</span>
+            <div className="h-full rounded-lg sm:rounded-xl border border-neutral-200 bg-white shadow-sm flex flex-col">
+              <div className="p-3 sm:p-4 border-b border-neutral-100 font-medium text-sm sm:text-base flex items-center gap-1.5 sm:gap-2">
+                <HomeModernIcon className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 flex-shrink-0" />
+                <span className="truncate">Recommended Clinics</span>
               </div>
               <ul className="divide-y divide-neutral-100">
                 {loading && (
                   <>
                     {Array.from({ length: 3 }).map((_, i) => (
-                      <li key={`cl-sk-${i}`} className="p-4 animate-pulse">
-                        <div className="h-3 w-40 bg-neutral-200 rounded mb-2" />
-                        <div className="h-2 w-24 bg-neutral-200 rounded" />
+                      <li key={`cl-sk-${i}`} className="p-3 sm:p-4 animate-pulse">
+                        <div className="h-3 w-32 sm:w-40 bg-neutral-200 rounded mb-2" />
+                        <div className="h-2 w-20 sm:w-24 bg-neutral-200 rounded" />
                       </li>
                     ))}
                   </>
                 )}
                 {!loading && recommended.map((c) => (
-                  <li key={c.id} className="p-4 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="font-medium">{c.name}</p>
+                  <li key={c.id} className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm sm:text-base truncate">{c.name}</p>
                       {c.phone && (
-                        <p className="text-xs text-neutral-500 inline-flex items-center gap-1">
-                          <PhoneIcon className="h-4 w-4" /> {c.phone}
+                        <p className="text-xs sm:text-sm text-neutral-500 inline-flex items-center gap-1 truncate">
+                          <PhoneIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" /> 
+                          <span className="truncate">{c.phone}</span>
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                       {typeof c.distanceKm === 'number' && isFinite(c.distanceKm) && (
-                        <span className="px-2 py-1 rounded-full text-xs bg-white ring-1 ring-neutral-200 text-neutral-600">{c.distanceKm.toFixed(1)} km</span>
+                        <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs bg-white ring-1 ring-neutral-200 text-neutral-600 whitespace-nowrap">{c.distanceKm.toFixed(1)} km</span>
                       )}
                       {c.recentScore && c.recentScore > 0 && (
-                        <span className="px-2 py-1 rounded-full text-xs bg-emerald-50 ring-1 ring-emerald-200 text-emerald-700">Recent</span>
+                        <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs bg-emerald-50 ring-1 ring-emerald-200 text-emerald-700 whitespace-nowrap">Recent</span>
                       )}
                       {c.phone ? (
-                        <a href={`tel:${c.phone}`} className="p-2 rounded-lg border border-neutral-200 hover:bg-neutral-50" aria-label="Call">
-                          <PhoneIcon className="h-5 w-5" />
+                        <a href={`tel:${c.phone}`} className="p-1.5 sm:p-2 rounded-lg border border-neutral-200 hover:bg-neutral-50 active:scale-95 flex-shrink-0" aria-label="Call">
+                          <PhoneIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                         </a>
                       ) : null}
-                      <Link href={`/pet_owner/clinics/${c.id}`} className="px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700">View</Link>
+                      <Link href={`/pet_owner/clinics/${c.id}`} className="px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 active:scale-95 whitespace-nowrap">View</Link>
                     </div>
                   </li>
                 ))}
                 {!loading && clinics.length === 0 && (
-                  <li className="p-6">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-neutral-500">No clinics found nearby.</p>
-                      <Link href="/pet_owner/clinics" className="px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700">Explore</Link>
+                  <li className="p-4 sm:p-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
+                      <p className="text-xs sm:text-sm text-neutral-500">No clinics found nearby.</p>
+                      <Link href="/pet_owner/clinics" className="px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 active:scale-95 whitespace-nowrap">Explore</Link>
                     </div>
                   </li>
                 )}
@@ -733,16 +740,16 @@ export default function PetOwnerDashboard() {
           </div>
 
           <div className="h-full md:col-span-2 xl:col-span-1">
-            <div className="h-full rounded-xl border border-neutral-200 bg-white shadow-sm flex flex-col">
-              <div className="p-4 border-b border-neutral-100 font-medium flex items-center gap-2">
-                <InformationCircleIcon className="h-5 w-5 text-sky-600" />
+            <div className="h-full rounded-lg sm:rounded-xl border border-neutral-200 bg-white shadow-sm flex flex-col">
+              <div className="p-3 sm:p-4 border-b border-neutral-100 font-medium text-sm sm:text-base flex items-center gap-1.5 sm:gap-2">
+                <InformationCircleIcon className="h-4 w-4 sm:h-5 sm:w-5 text-sky-600 flex-shrink-0" />
                 <span>Care Tips</span>
               </div>
-              <ul className="p-4 space-y-3">
+              <ul className="p-3 sm:p-4 space-y-2.5 sm:space-y-3">
                 {tips.map((t) => (
-                  <li key={t.id} className="rounded-lg bg-neutral-50 p-3">
-                    <p className="text-sm font-medium">{t.title}</p>
-                    <p className="text-xs text-neutral-600">{t.desc}</p>
+                  <li key={t.id} className="rounded-lg bg-neutral-50 p-2.5 sm:p-3">
+                    <p className="text-xs sm:text-sm font-medium mb-1">{t.title}</p>
+                    <p className="text-[10px] sm:text-xs text-neutral-600 leading-relaxed">{t.desc}</p>
                   </li>
                 ))}
               </ul>

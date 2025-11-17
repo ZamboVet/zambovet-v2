@@ -363,7 +363,7 @@ export default function AdminUsersPage() {
         </div>
       ) : (
         <div className="rounded-2xl bg-white shadow-sm ring-1 ring-black/5 overflow-hidden">
-          <div className="flex flex-wrap items-center gap-2 p-4 bg-white border-b">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2 p-3 sm:p-4 bg-white border-b">
             {/* Table search bar removed */}
             <div className="inline-flex items-center gap-2 rounded-full bg-white ring-1 ring-black/5 px-3 py-2">
               <AdjustmentsHorizontalIcon className="w-4 h-4 text-gray-500" />
@@ -374,15 +374,7 @@ export default function AdminUsersPage() {
                 <option value="admin">Admin</option>
               </select>
             </div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-white ring-1 ring-black/5 px-3 py-2">
-              <AdjustmentsHorizontalIcon className="w-4 h-4 text-gray-500" />
-              <select value={tableStatus} onChange={e=>{ setTableStatus(e.target.value as Status | 'all'); setPage(1); }} className="text-sm bg-transparent outline-none">
-                <option value="all">All status</option>
-                <option value="active">Active</option>
-                <option value="suspended">Suspended</option>
-              </select>
-            </div>
-            <div className="ml-auto inline-flex items-center gap-2 rounded-full bg-white ring-1 ring-black/5 px-3 py-2">
+            <div className="sm:ml-auto inline-flex items-center gap-2 rounded-full bg-white ring-1 ring-black/5 px-3 py-2">
               <span className="text-xs text-gray-500">Rows</span>
               <select value={pageSize} onChange={e=>{ setPageSize(parseInt(e.target.value,10)); setPage(1); }} className="text-sm bg-transparent outline-none">
                 <option value={5}>5</option>
@@ -391,7 +383,67 @@ export default function AdminUsersPage() {
               </select>
             </div>
           </div>
-          <div className="max-h-[70vh] overflow-auto">
+          {/* Mobile list (sm:hidden) */}
+          <div className="sm:hidden divide-y">
+            {loading ? (
+              Array.from({length: Math.min(6, pageSize)}).map((_,i)=>(
+                <div key={`msk${i}`} className="p-4 animate-pulse">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-gray-200" />
+                    <div className="flex-1 h-4 bg-gray-200 rounded" />
+                  </div>
+                  <div className="mt-2 h-3 bg-gray-200 rounded w-1/2" />
+                </div>
+              ))
+            ) : pageRows.length === 0 ? (
+              <div className="px-4 py-10 text-center text-sm text-gray-600">No users found. Try adjusting filters.</div>
+            ) : (
+              pageRows.map(u => (
+                <div key={u.id} className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-700 grid place-items-center text-xs font-semibold">{u.name.split(" ")[0][0]}</div>
+                      <div className="min-w-0">
+                        <div className="font-medium truncate" style={{ color: PRIMARY }}>{u.name}</div>
+                        <div className="text-xs text-gray-500 truncate" title={u.email}>{u.email}</div>
+                      </div>
+                    </div>
+                    <div className="shrink-0">
+                      <select value={u.role} onChange={e=>setUserRole(u.id, e.target.value as Role)} className={`px-2 py-1 rounded-full text-xs font-medium ${rolePill(u.role)} bg-transparent`}>
+                        <option value="pet_owner">OWNER</option>
+                        <option value="veterinarian">VET</option>
+                        <option value="admin">ADMIN</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <button onClick={()=>toggleUserStatus(u.id)} className={`px-2 py-1 rounded-full text-xs font-medium ${statusPill(u.status)} inline-flex items-center gap-1`}>
+                      <span className={`w-2 h-2 rounded-full ${u.status==='active'?'bg-green-500 animate-pulse':'bg-rose-500'}`} />
+                      {u.status}
+                    </button>
+                    <div className="inline-flex items-center gap-2">
+                      <button onClick={()=>viewUser(u)} className="px-2 py-1 rounded-lg bg-gray-50 text-xs hover:bg-blue-50" style={{ color: PRIMARY }}>View</button>
+                      <button onClick={()=>editUser(u)} className="px-2 py-1 rounded-lg bg-gray-50 text-xs hover:bg-blue-50" style={{ color: PRIMARY }}>Edit</button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-t bg-white">
+              <div className="text-xs text-gray-500">Showing {tableFiltered.length === 0 ? 0 : pageStart + 1}–{pageEnd} of {tableFiltered.length}</div>
+              <div className="inline-flex items-center gap-2">
+                <button disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))} className="px-3 py-1.5 rounded-lg bg-gray-50 hover:bg-blue-50 disabled:opacity-50 inline-flex items-center gap-1" style={{ color: PRIMARY }}>
+                  <ChevronLeftIcon className="w-4 h-4" /> Prev
+                </button>
+                <div className="text-xs text-gray-600">Page {page} / {totalPages}</div>
+                <button disabled={page>=totalPages} onClick={()=>setPage(p=>Math.min(totalPages,p+1))} className="px-3 py-1.5 rounded-lg bg-gray-50 hover:bg-blue-50 disabled:opacity-50 inline-flex items-center gap-1" style={{ color: PRIMARY }}>
+                  Next <ChevronRightIcon className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+          {/* Desktop/tablet table (hidden on mobile) */}
+          <div className="hidden sm:block max-h-[70vh] overflow-auto">
             <div className="grid gap-2 px-4 py-3 text-xs font-medium text-gray-600 bg-gray-50/80 sticky top-0 z-10 backdrop-blur"
                  style={{ gridTemplateColumns: "3fr 3fr 2fr 2fr 1fr" }}>
               <button className="text-left inline-flex items-center gap-1" onClick={()=>{ setTableSort(s=> s==='name'?'name':'name'); setTableSortDir(d=> tableSort==='name' ? (d==='asc'?'desc':'asc') : 'asc'); }}>
@@ -406,53 +458,52 @@ export default function AdminUsersPage() {
               <div>Status</div>
               <div className="text-right">Actions</div>
             </div>
-          {loading ? (
-            Array.from({length: Math.min(6, pageSize)}).map((_,i)=>(
-              <div key={`sk${i}`} className="grid gap-2 px-4 py-3 items-center border-t text-sm animate-pulse" style={{ gridTemplateColumns: "3fr 3fr 2fr 2fr 1fr" }}>
-                <div className="flex items-center gap-3"><div className="w-9 h-9 rounded-lg bg-gray-200"/><div className="flex-1 h-4 bg-gray-200 rounded"/></div>
-                <div><div className="h-4 bg-gray-200 rounded"/></div>
-                <div><div className="h-6 bg-gray-200 rounded-full"/></div>
-                <div><div className="h-6 bg-gray-200 rounded-full"/></div>
-                <div className="flex justify-end"><div className="w-16 h-6 bg-gray-200 rounded"/></div>
-              </div>
-            ))
-          ) : pageRows.length === 0 ? (
-            <div className="px-4 py-10 text-center text-sm text-gray-600">No users found. Try adjusting filters or add a new user.</div>
-          ) : (
-          pageRows.map(u => (
-            <div key={u.id} className="grid gap-2 px-4 py-3 items-center border-t text-sm hover:bg-blue-50/30 transition even:bg-gray-50/20"
-                 style={{ gridTemplateColumns: "3fr 3fr 2fr 2fr 1fr" }} tabIndex={0}
-                 onKeyDown={(e)=>{ if (e.key==='Enter' || e.key===' ') { e.preventDefault(); viewUser(u); } }}
-                 onClick={()=>viewUser(u)}>
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-700 grid place-items-center text-xs font-semibold">{u.name.split(" ")[0][0]}</div>
-                <div className="min-w-0">
-                  <div className="font-medium truncate" style={{ color: PRIMARY }}>{u.name}</div>
+            {loading ? (
+              Array.from({length: Math.min(6, pageSize)}).map((_,i)=>(
+                <div key={`sk${i}`} className="grid gap-2 px-4 py-3 items-center border-t text-sm animate-pulse" style={{ gridTemplateColumns: "3fr 3fr 2fr 2fr 1fr" }}>
+                  <div className="flex items-center gap-3"><div className="w-9 h-9 rounded-lg bg-gray-200"/><div className="flex-1 h-4 bg-gray-200 rounded"/></div>
+                  <div><div className="h-4 bg-gray-200 rounded"/></div>
+                  <div><div className="h-6 bg-gray-200 rounded-full"/></div>
+                  <div><div className="h-6 bg-gray-200 rounded-full"/></div>
+                  <div className="flex justify-end"><div className="w-16 h-6 bg-gray-200 rounded"/></div>
                 </div>
-              </div>
-              <div className="text-gray-600 truncate min-w-0" title={u.email}>{u.email}</div>
-              <div>
-                <select onClick={(e)=>e.stopPropagation()} value={u.role} onChange={e=>setUserRole(u.id, e.target.value as Role)} className={`px-2 py-1 rounded-full text-xs font-medium ${rolePill(u.role)} bg-transparent`}>
-                  <option value="pet_owner">PET OWNER</option>
-                  <option value="veterinarian">VETERINARIAN</option>
-                  <option value="admin">ADMIN</option>
-                </select>
-              </div>
-              <div>
-                <button onClick={()=>toggleUserStatus(u.id)} className={`px-2 py-1 rounded-full text-xs font-medium ${statusPill(u.status)} inline-flex items-center gap-1 transition-colors`}>
-                  <span className={`w-2 h-2 rounded-full ${u.status==='active'?'bg-green-500 animate-pulse':'bg-rose-500'}`} />
-                  {u.status}
-                </button>
-              </div>
-              <div className="flex justify-end gap-2">
-                <button onClick={(e)=>{ e.stopPropagation(); editUser(u); }} className="px-2 py-1 rounded-lg bg-gray-50 hover:bg-blue-50 text-xs inline-flex items-center gap-1" style={{ color: PRIMARY }}>
-                  <PencilSquareIcon className="w-4 h-4" /> Edit
-                </button>
-              </div>
-            </div>
-          )))}
+              ))
+            ) : pageRows.length === 0 ? (
+              <div className="px-4 py-10 text-center text-sm text-gray-600">No users found. Try adjusting filters or add a new user.</div>
+            ) : (
+              pageRows.map(u => (
+                <div key={u.id} className="grid gap-2 px-4 py-3 items-center border-t text-sm hover:bg-blue-50/30 transition even:bg-gray-50/20"
+                     style={{ gridTemplateColumns: "3fr 3fr 2fr 2fr 1fr" }} tabIndex={0}
+                     onKeyDown={(e)=>{ if (e.key==='Enter' || e.key===' ') { e.preventDefault(); viewUser(u); } }}
+                     onClick={()=>viewUser(u)}>
+                  <div className="flex items-start justify-between gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-700 grid place-items-center text-xs font-semibold">{u.name.split(" ")[0][0]}</div>
+                    <div className="min-w-0">
+                      <div className="font-medium truncate" style={{ color: PRIMARY }}>{u.name}</div>
+                    </div>
+                  </div>
+                  <div className="text-gray-600 truncate min-w-0" title={u.email}>{u.email}</div>
+                  <div>
+                    <select onClick={(e)=>e.stopPropagation()} value={u.role} onChange={e=>setUserRole(u.id, e.target.value as Role)} className={`px-2 py-1 rounded-full text-xs font-medium ${rolePill(u.role)} bg-transparent`}>
+                      <option value="pet_owner">OWNER</option>
+                      <option value="veterinarian">VET</option>
+                      <option value="admin">ADMIN</option>
+                    </select>
+                  </div>
+                  <div>
+                    <button onClick={()=>toggleUserStatus(u.id)} className={`px-2 py-1 rounded-full text-xs font-medium ${statusPill(u.status)} inline-flex items-center gap-1 transition-colors`}>
+                      <span className={`w-2 h-2 rounded-full ${u.status==='active'?'bg-green-500 animate-pulse':'bg-rose-500'}`} />
+                      {u.status}
+                    </button>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button onClick={(e)=>{ e.stopPropagation(); editUser(u); }} className="px-2 py-1 rounded-lg bg-gray-50 text-xs hover:bg-blue-50" style={{ color: PRIMARY }}>Edit</button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
-          <div className="flex items-center justify-between gap-3 px-4 py-3 border-t bg-white">
+          <div className="hidden sm:flex items-center justify-between gap-3 px-4 py-3 border-t bg-white">
             <div className="text-xs text-gray-500">Showing {tableFiltered.length === 0 ? 0 : pageStart + 1}–{pageEnd} of {tableFiltered.length}</div>
             <div className="inline-flex items-center gap-2">
               <button disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))} className="px-3 py-1.5 rounded-lg bg-gray-50 hover:bg-blue-50 disabled:opacity-50 inline-flex items-center gap-1" style={{ color: PRIMARY }}>
