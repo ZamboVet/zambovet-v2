@@ -87,6 +87,7 @@ export default function VetDashboardPage() {
           user_id: vetObj.user_id,
           full_name: vetObj.full_name,
           specialization: vetObj.specialization || null,
+          clinic_id: (vetObj as any).clinic_id ?? null,
           is_available: !!vetObj.is_available,
           average_rating: vetObj.average_rating ?? 0
         } as Vet;
@@ -98,12 +99,11 @@ export default function VetDashboardPage() {
             .select("id", { count: "exact", head: true })
             .eq("user_role", "veterinarian")
             .eq("verification_status", "approved");
-          if ((approvedCount ?? 0) <= 1) {
-            if (vetRow.clinic_id == null) {
-              await Swal.fire({ icon: "info", title: "Set up your clinic location", text: "As the first approved veterinarian, please set up your clinic location to enable bookings." });
-              window.location.href = "/veterinarian/clinic/location";
-              return;
-            }
+          // Only enforce gate if we successfully received a count.
+          if (approvedCount != null && approvedCount <= 1 && vetRow.clinic_id == null) {
+            await Swal.fire({ icon: "info", title: "Set up your clinic location", text: "As the first approved veterinarian, please set up your clinic location to enable bookings." });
+            window.location.href = "/veterinarian/clinic/location";
+            return;
           }
         } catch {}
         const { data: appts, error: aErr } = await supabase

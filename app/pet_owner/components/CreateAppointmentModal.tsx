@@ -45,13 +45,11 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
     const load = async () => {
       if (!open || !ownerId) return;
       try {
-        const [{ data: petRows }, { data: vetRows }, { data: clinicRows }] = await Promise.all([
+        const [{ data: petRows }, { data: clinicRows }] = await Promise.all([
           supabase.from("patients").select("id,name,species").eq("owner_id", ownerId).eq("is_active", true).order("name", { ascending: true }),
-          supabase.from("veterinarians").select("id,full_name,clinic_id").order("full_name", { ascending: true }),
           supabase.from("clinics").select("id,name,operating_hours").order("name", { ascending: true }),
         ]);
         setPets((petRows || []) as Pet[]);
-        setVets(((vetRows || []) as any[]).map(v => ({ id: v.id, full_name: v.full_name })) as Vet[]);
         setClinics((clinicRows || []) as Clinic[]);
         if (presetClinicId) setClinicId(presetClinicId);
       } catch (e: any) {
@@ -64,24 +62,42 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
   // When clinic changes, fetch vets for that clinic and preselect
   useEffect(() => {
     const run = async () => {
-      if (!open) return;
+      if (!open || !clinicId) return;
       try {
-        let q = supabase.from('veterinarians').select('id,full_name').order('full_name', { ascending: true });
-        if (clinicId) q = q.eq('clinic_id', clinicId as number);
-        const { data } = await q;
+        const { data } = await supabase
+          .from('veterinarians')
+          .select('id,full_name')
+          .eq('clinic_id', clinicId as number)
+          .order('full_name', { ascending: true });
         const list = (data || []) as Vet[];
         setVets(list);
-        if (clinicId) {
-          if (list.length === 0) {
-            setVeterinarianId("");
-          } else if (!veterinarianId || !list.some(v => v.id === (veterinarianId as number))) {
-            setVeterinarianId(list[0].id);
-          }
+        if (list.length === 0) {
+          setVeterinarianId("");
+        } else {
+          setVeterinarianId(prev => {
+            const prevNum = typeof prev === "number" ? prev : Number(prev) || null;
+            if (prevNum && list.some(v => v.id === prevNum)) {
+              return prevNum;
+            }
+            return list[0].id;
+          });
         }
-      } catch {}
+      } catch {
+        setVets([]);
+        setVeterinarianId("");
+      }
     };
+    if (!clinicId) {
+      setVets([]);
+      setVeterinarianId("");
+      return;
+    }
     run();
   }, [clinicId, open]);
+
+  const assignedVet = useMemo(() => {
+    return vets.find(v => v.id === (typeof veterinarianId === "number" ? veterinarianId : Number(veterinarianId))) || null;
+  }, [vets, veterinarianId]);
 
   // Focus trap + ESC
   useEffect(() => {
@@ -224,14 +240,38 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
       };
       const { data, error } = await supabase.from("appointments").insert(payload).select("*").single();
       if (error) throw error;
+      
+      // Create notification for the veterinarian
       try {
-        await supabase.from('notifications').insert({
-          title: 'Appointment created',
-          message: `Appointment #${data.id} on ${data.appointment_date} • ${data.appointment_time}`,
-          notification_type: 'system',
-          related_appointment_id: data.id,
-        });
-      } catch {}
+        // Get veterinarian's user_id from veterinarians table
+        const { data: vetData } = await supabase
+          .from("veterinarians")
+          .select("user_id")
+          .eq("id", veterinarianId)
+          .maybeSingle();
+        
+        // Get patient name for better notification message
+        const { data: patientData } = await supabase
+          .from("patients")
+          .select("name")
+          .eq("id", patientId)
+          .maybeSingle();
+        
+        const patientName = patientData?.name || "a patient";
+        
+        if (vetData?.user_id) {
+          await supabase.from('notifications').insert({
+            user_id: vetData.user_id,
+            title: 'New Appointment Request',
+            message: `New appointment request for ${patientName} on ${data.appointment_date} at ${data.appointment_time}`,
+            notification_type: 'appointment',
+            related_appointment_id: data.id,
+          });
+        }
+      } catch (notifErr: any) {
+        // Log error but don't block appointment creation
+        console.error("Failed to create notification:", notifErr);
+      }
       await Swal.fire({ icon: "success", title: "Appointment requested" });
       onCreated(data);
       onClose();
@@ -273,10 +313,20 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
             </div>
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-1">Veterinarian</label>
-              <select value={veterinarianId as any} onChange={(e)=> setVeterinarianId(e.target.value ? Number(e.target.value) : "")} className="w-full rounded-xl border border-neutral-200 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">Select veterinarian</option>
-                {vets.map(v => <option key={v.id} value={v.id}>{v.full_name}</option>)}
-              </select>
+              <div className="w-full rounded-xl border border-neutral-200 px-3 py-2 bg-neutral-50 text-sm text-neutral-700">
+                {clinicId ? (
+                  assignedVet ? (
+                    <div className="flex flex-col gap-1">
+                      <span className="font-medium">{assignedVet.full_name}</span>
+                      <span className="text-xs text-neutral-500">Assigned automatically based on the selected clinic</span>
+                    </div>
+                  ) : (
+                    <span className="text-red-500 text-sm">No veterinarians available for this clinic</span>
+                  )
+                ) : (
+                  <span className="text-neutral-500 text-sm">Select a clinic to assign a veterinarian automatically</span>
+                )}
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-1">Clinic {presetClinicId ? "(preset)" : "(optional)"}</label>

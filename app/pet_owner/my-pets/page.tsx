@@ -23,13 +23,29 @@ type Pet = {
 
 function ageFrom(dob: string | null) {
   if (!dob) return "-";
-  const d = new Date(dob);
+  const birth = new Date(dob);
+  if (isNaN(birth.getTime())) return "-";
   const now = new Date();
-  let years = now.getFullYear() - d.getFullYear();
-  const m = now.getMonth() - d.getMonth();
-  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) years--;
-  if (years < 1) return "<1y";
-  return `${years}y`;
+  let years = now.getFullYear() - birth.getFullYear();
+  let months = now.getMonth() - birth.getMonth();
+  let days = now.getDate() - birth.getDate();
+  if (days < 0) {
+    const prevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    days += prevMonth.getDate();
+    months -= 1;
+  }
+  if (months < 0) {
+    months += 12;
+    years -= 1;
+  }
+  const parts: string[] = [];
+  if (years > 0) parts.push(`${years} year${years > 1 ? 's' : ''}`);
+  if (months > 0) parts.push(`${months} month${months > 1 ? 's' : ''}`);
+  if (years === 0 && months === 0) {
+    const d = Math.max(days, 0);
+    parts.push(`${d} day${d !== 1 ? 's' : ''}`);
+  }
+  return parts.join(", ") || "0 days";
 }
 
 export default function MyPetsPage() {
@@ -119,141 +135,141 @@ export default function MyPetsPage() {
 
   return (
     <div className="min-h-dvh bg-neutral-50">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6">
-        <div className="rounded-2xl bg-white/70 backdrop-blur ring-1 ring-neutral-200 shadow-sm px-4 sm:px-5 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white grid place-items-center">
-              <HeartIcon className="h-5 w-5" />
+      <div className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 lg:px-8 pt-4 sm:pt-5 md:pt-6">
+        <div className="rounded-lg sm:rounded-2xl bg-white/70 backdrop-blur ring-1 ring-neutral-200 shadow-sm px-3 sm:px-4 md:px-5 py-3 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+            <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg sm:rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white grid place-items-center flex-shrink-0">
+              <HeartIcon className="h-4 w-4 sm:h-5 sm:w-5" />
             </div>
-            <div>
-              <h1 className="text-lg sm:text-xl font-semibold text-neutral-900">My Pets</h1>
-              <p className="text-xs sm:text-sm text-neutral-500">Manage your pet profiles</p>
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg md:text-xl font-semibold text-neutral-900 truncate">My Pets</h1>
+              <p className="text-[10px] sm:text-xs md:text-sm text-neutral-500 truncate">Manage your pet profiles</p>
             </div>
           </div>
           <Link
             href="/pet_owner/my-pets/diary"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 text-sm font-medium"
+            className="inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-blue-600 text-white hover:bg-blue-700 text-xs sm:text-sm font-medium active:scale-95 whitespace-nowrap"
           >
-            <DocumentTextIcon className="w-4 h-4" /> Pet Diary
+            <DocumentTextIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span>Pet Diary</span>
           </Link>
         </div>
       </div>
 
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
-        <div className="mb-4 sticky top-2 z-10">
-          <div className="rounded-2xl bg-white/80 backdrop-blur ring-1 ring-neutral-200 p-3 shadow-sm">
-            <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
-              <div className="flex-1 inline-flex items-center gap-2 rounded-xl bg-white ring-1 ring-neutral-200 px-3 py-2 shadow-sm">
-                <MagnifyingGlassIcon className="h-5 w-5 text-neutral-400" />
+      <div className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-5 md:py-6">
+        <div className="mb-3 sm:mb-4 sticky top-2 z-10">
+          <div className="rounded-lg sm:rounded-2xl bg-white/80 backdrop-blur ring-1 ring-neutral-200 p-2.5 sm:p-3 shadow-sm">
+            <div className="flex flex-col lg:flex-row gap-2 sm:gap-3 items-stretch lg:items-center">
+              <div className="flex-1 inline-flex items-center gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 px-2.5 sm:px-3 py-1.5 sm:py-2 shadow-sm">
+                <MagnifyingGlassIcon className="h-4 w-4 sm:h-5 sm:w-5 text-neutral-400 flex-shrink-0" />
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search pets by name, species, breed…"
-                  className="w-full outline-none bg-transparent text-sm"
+                  placeholder="Search pets..."
+                  className="w-full outline-none bg-transparent text-xs sm:text-sm"
                 />
               </div>
-              <div className="inline-flex items-center gap-2 rounded-xl bg-white ring-1 ring-neutral-200 px-3 py-2 shadow-sm">
-                <FunnelIcon className="h-5 w-5 text-neutral-400" />
-                <select value={speciesFilter} onChange={(e) => setSpeciesFilter(e.target.value)} className="bg-transparent text-sm outline-none">
+              <div className="inline-flex items-center gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 px-2.5 sm:px-3 py-1.5 sm:py-2 shadow-sm">
+                <FunnelIcon className="h-4 w-4 sm:h-5 sm:w-5 text-neutral-400 flex-shrink-0" />
+                <select value={speciesFilter} onChange={(e) => setSpeciesFilter(e.target.value)} className="bg-transparent text-xs sm:text-sm outline-none flex-1 min-w-0">
                   {speciesOptions.map((opt) => (
                     <option key={opt} value={opt}>{opt}</option>
                   ))}
                 </select>
               </div>
-              <div className="inline-flex items-center gap-2 rounded-xl bg-white ring-1 ring-neutral-200 px-3 py-2 shadow-sm">
-                <ArrowsUpDownIcon className="h-5 w-5 text-neutral-400" />
-                <select value={sort} onChange={(e) => setSort(e.target.value)} className="bg-transparent text-sm outline-none">
+              <div className="inline-flex items-center gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 px-2.5 sm:px-3 py-1.5 sm:py-2 shadow-sm">
+                <ArrowsUpDownIcon className="h-4 w-4 sm:h-5 sm:w-5 text-neutral-400 flex-shrink-0" />
+                <select value={sort} onChange={(e) => setSort(e.target.value)} className="bg-transparent text-xs sm:text-sm outline-none flex-1 min-w-0">
                   {['Newest','Name A-Z','Name Z-A'].map((opt) => (
                     <option key={opt} value={opt}>{opt}</option>
                   ))}
                 </select>
               </div>
-              <div className="inline-flex items-center gap-2 rounded-xl bg-white ring-1 ring-neutral-200 px-3 py-2 shadow-sm">
-                <button onClick={() => setView("grid")} className={`p-1.5 rounded-lg ${view==='grid' ? 'bg-neutral-100' : ''}`} aria-label="Grid view">
-                  <Squares2X2Icon className="h-5 w-5" />
+              <div className="inline-flex items-center gap-1 sm:gap-2 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 px-2 sm:px-2.5 py-1.5 sm:py-2 shadow-sm">
+                <button onClick={() => setView("grid")} className={`p-1 sm:p-1.5 rounded-lg active:scale-95 ${view==='grid' ? 'bg-neutral-100' : ''}`} aria-label="Grid view">
+                  <Squares2X2Icon className="h-4 w-4 sm:h-5 sm:w-5" />
                 </button>
-                <button onClick={() => setView("list")} className={`p-1.5 rounded-lg ${view==='list' ? 'bg-neutral-100' : ''}`} aria-label="List view">
-                  <Bars3BottomLeftIcon className="h-5 w-5" />
+                <button onClick={() => setView("list")} className={`p-1 sm:p-1.5 rounded-lg active:scale-95 ${view==='list' ? 'bg-neutral-100' : ''}`} aria-label="List view">
+                  <Bars3BottomLeftIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                 </button>
               </div>
-              <button onClick={onAdd} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 shadow-sm">
-                <PlusIcon className="h-4 w-4" />
+              <button onClick={onAdd} className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl bg-blue-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium hover:bg-blue-700 shadow-sm active:scale-95">
+                <PlusIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 <span>Add Pet</span>
               </button>
             </div>
           </div>
         </div>
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={`sk-${i}`} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm animate-pulse">
-                <div className="h-32 w-full bg-neutral-200 rounded mb-3" />
-                <div className="h-3 w-40 bg-neutral-200 rounded mb-2" />
-                <div className="h-3 w-24 bg-neutral-200 rounded" />
+              <div key={`sk-${i}`} className="rounded-lg sm:rounded-xl border border-neutral-200 bg-white p-3 sm:p-4 shadow-sm animate-pulse">
+                <div className="h-32 sm:h-40 w-full bg-neutral-200 rounded mb-2 sm:mb-3" />
+                <div className="h-3 w-32 sm:w-40 bg-neutral-200 rounded mb-1.5 sm:mb-2" />
+                <div className="h-2.5 sm:h-3 w-20 sm:w-24 bg-neutral-200 rounded" />
               </div>
             ))}
           </div>
         ) : displayed.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-neutral-300 bg-white shadow-sm p-10 text-center">
-            <div className="mx-auto mb-3 h-12 w-12 rounded-2xl bg-blue-50 text-blue-600 grid place-items-center">
-              <HeartIcon className="h-6 w-6" />
+          <div className="rounded-lg sm:rounded-2xl border border-dashed border-neutral-300 bg-white shadow-sm p-6 sm:p-8 md:p-10 text-center">
+            <div className="mx-auto mb-2 sm:mb-3 h-10 w-10 sm:h-12 sm:w-12 rounded-xl sm:rounded-2xl bg-blue-50 text-blue-600 grid place-items-center">
+              <HeartIcon className="h-5 w-5 sm:h-6 sm:w-6" />
             </div>
-            <p className="text-neutral-700 font-medium mb-1">No pets found</p>
-            <p className="text-neutral-500 text-sm mb-4">Try adjusting your search or add a new pet.</p>
-            <button onClick={onAdd} className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm hover:bg-blue-700">Add a pet</button>
+            <p className="text-sm sm:text-base text-neutral-700 font-medium mb-1">No pets found</p>
+            <p className="text-xs sm:text-sm text-neutral-500 mb-3 sm:mb-4">Try adjusting your search or add a new pet.</p>
+            <button onClick={onAdd} className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-blue-600 text-white text-xs sm:text-sm hover:bg-blue-700 active:scale-95">Add a pet</button>
           </div>
         ) : (
-          <div className={`${view==='grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5' : 'space-y-3'}`}>
+          <div className={`${view==='grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5' : 'space-y-2 sm:space-y-3'}`}>
             {displayed.map((p) => (
-              <div key={p.id} className={`group rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden transition-all hover:shadow-lg hover:-translate-y-0.5 ${view==='list' ? 'flex' : ''}`}>
-                <div className="relative h-44 w-full bg-neutral-100">
+              <div key={p.id} className={`group rounded-lg sm:rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden transition-all hover:shadow-lg hover:-translate-y-0.5 ${view==='list' ? 'flex flex-col sm:flex-row' : ''}`}>
+                <div className={`relative ${view==='list' ? 'h-32 sm:h-44 sm:w-44' : 'h-40 sm:h-44'} w-full bg-neutral-100 flex-shrink-0`}>
                   {p.profile_picture_url ? (
                     <img src={p.profile_picture_url} alt={p.name} className="h-full w-full object-cover" />
                   ) : (
-                    <div className="h-full w-full grid place-items-center text-neutral-400">No photo</div>
+                    <div className="h-full w-full grid place-items-center text-neutral-400 text-xs sm:text-sm">No photo</div>
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/0 to-transparent opacity-80" />
-                  <div className="absolute left-3 top-3 flex flex-wrap gap-2">
-                    <span className="inline-flex items-center rounded-full bg-white/95 backdrop-blur px-3 py-1 text-xs font-semibold text-blue-700 ring-1 ring-blue-200 shadow-sm">{p.species}</span>
+                  <div className="absolute left-2 sm:left-3 top-2 sm:top-3 flex flex-wrap gap-1.5 sm:gap-2">
+                    <span className="inline-flex items-center rounded-full bg-white/95 backdrop-blur px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-semibold text-blue-700 ring-1 ring-blue-200 shadow-sm">{p.species}</span>
                     {p.breed && (
-                      <span className="inline-flex items-center rounded-full bg-white/95 backdrop-blur px-3 py-1 text-xs font-semibold text-purple-700 ring-1 ring-purple-200 shadow-sm">{p.breed}</span>
+                      <span className="inline-flex items-center rounded-full bg-white/95 backdrop-blur px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-semibold text-purple-700 ring-1 ring-purple-200 shadow-sm">{p.breed}</span>
                     )}
                   </div>
                 </div>
-                <div className="p-4 flex-1">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <p className="font-semibold text-neutral-900 tracking-tight">{p.name}</p>
-                      <p className="text-xs text-neutral-500">Age {ageFrom(p.date_of_birth)}</p>
+                <div className="p-3 sm:p-4 flex-1 min-w-0">
+                  <div className="flex items-start justify-between mb-2 sm:mb-3 gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm sm:text-base text-neutral-900 tracking-tight truncate">{p.name}</p>
+                      <p className="text-[10px] sm:text-xs text-neutral-500">Age {ageFrom(p.date_of_birth)}</p>
                     </div>
-                    <div className="flex items-center gap-1 ml-2">
-                      <button onClick={() => onEdit(p)} className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition" title="Edit">
-                        <PencilSquareIcon className="h-5 w-5" />
+                    <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
+                      <button onClick={() => onEdit(p)} className="p-1.5 sm:p-2 rounded-lg text-blue-600 hover:bg-blue-50 active:scale-95 transition" title="Edit">
+                        <PencilSquareIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                       </button>
-                      <button onClick={() => onDelete(p)} className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition" title="Delete">
-                        <TrashIcon className="h-5 w-5" />
+                      <button onClick={() => onDelete(p)} className="p-1.5 sm:p-2 rounded-lg text-red-600 hover:bg-red-50 active:scale-95 transition" title="Delete">
+                        <TrashIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                       </button>
-                      <button onClick={() => Swal.fire({ title: "Book visit", text: `Booking flow for ${p.name} coming soon.`, icon: "info", confirmButtonColor: "#2563eb" })} className="p-2 rounded-lg text-emerald-700 hover:bg-emerald-50 transition" title="Book Visit">
-                        <CalendarDaysIcon className="h-5 w-5" />
+                      <button onClick={() => Swal.fire({ title: "Book visit", text: `Booking flow for ${p.name} coming soon.`, icon: "info", confirmButtonColor: "#2563eb" })} className="p-1.5 sm:p-2 rounded-lg text-emerald-700 hover:bg-emerald-50 active:scale-95 transition" title="Book Visit">
+                        <CalendarDaysIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                       </button>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2 mt-2 sm:mt-0">
                     <button
                       onClick={() => { setViewing(p); setViewOpen(true); }}
-                      className="p-2 rounded-lg text-neutral-700 hover:bg-neutral-100 transition"
+                      className="p-1.5 sm:p-2 rounded-lg text-neutral-700 hover:bg-neutral-100 active:scale-95 transition"
                       title="View"
                       aria-label="View"
                     >
-                      <EyeIcon className="h-5 w-5" />
+                      <EyeIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                     </button>
-                    <div className="flex items-center gap-1 sm:gap-2">
-                      <span className="inline-flex items-center rounded-full bg-neutral-50 text-neutral-600 px-2 py-0.5 text-[11px] ring-1 ring-neutral-200">ID #{p.id}</span>
+                    <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+                      <span className="inline-flex items-center rounded-full bg-neutral-50 text-neutral-600 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] ring-1 ring-neutral-200 whitespace-nowrap">ID #{p.id}</span>
                       {p.gender && (
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] capitalize ring-1 shadow-sm ${p.gender === 'male' ? 'bg-blue-50 text-blue-700 ring-blue-200' : 'bg-pink-50 text-pink-700 ring-pink-200'}`}>{p.gender}</span>
+                        <span className={`inline-flex items-center rounded-full px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] capitalize ring-1 shadow-sm whitespace-nowrap ${p.gender === 'male' ? 'bg-blue-50 text-blue-700 ring-blue-200' : 'bg-pink-50 text-pink-700 ring-pink-200'}`}>{p.gender}</span>
                       )}
                       {typeof p.weight === 'number' && (
-                        <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 text-[11px] ring-1 ring-emerald-200">{p.weight} kg</span>
+                        <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] ring-1 ring-emerald-200 whitespace-nowrap">{p.weight} kg</span>
                       )}
                     </div>
                   </div>

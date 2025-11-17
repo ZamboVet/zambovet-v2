@@ -259,53 +259,81 @@ export default function AdminVetsPage() {
         {/* Search bar removed */}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2">
         <div className="inline-flex rounded-full bg-white ring-1 ring-black/5 overflow-hidden">
-          {(["all","pending","approved","rejected"] as const).map(s => (
+          {( ["all","pending","approved","rejected"] as const).map(s => (
             <button key={s} onClick={()=>{ setStatus(s); setPage(1); }} className={`px-3 py-1.5 text-sm ${status===s?"bg-blue-600 text-white":"text-gray-700 hover:bg-blue-50"}`}>{s.toUpperCase()}</button>
           ))}
         </div>
       </div>
 
       <div className="rounded-2xl bg-white shadow-sm ring-1 ring-black/5 overflow-hidden">
-        <div className="grid gap-2 px-4 py-3 text-xs font-medium text-gray-600 bg-gray-50/80 sticky top-0 z-10 backdrop-blur"
-             style={{ gridTemplateColumns: "2fr 2fr 2fr 1.5fr 1fr 1.5fr" }}>
-          <div>Name</div>
-          <div>Email</div>
-          <div>Specialization</div>
-          <div>License #</div>
-          <div>Status</div>
-          <div className="text-right">Actions</div>
+        {/* Mobile list */}
+        <div className="sm:hidden divide-y">
+          {(loading ? Array.from({length: Math.min(8, pageSize)}).map((_,i)=>({id:i,full_name:"",email:"",specialization:"",license_number:"",status:"pending",phone:""})) : pageRows).map((a:any)=> (
+            <div key={a.id} className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-medium truncate" style={{ color: PRIMARY }}>{a.full_name || "Loading"}</div>
+                  <div className="text-xs text-gray-500 truncate" title={a.email}>{a.email || "-"}</div>
+                  <div className="text-xs text-gray-500 truncate">{a.specialization || "General Practice"}</div>
+                  <div className="text-xs text-gray-500 truncate">Lic #{a.license_number || "-"}</div>
+                </div>
+                <span className={`px-2 py-1 rounded-full text-[11px] font-medium whitespace-nowrap ${a.status==="approved"?"bg-green-100 text-green-700":a.status==="rejected"?"bg-rose-100 text-rose-700":"bg-amber-100 text-amber-700"}`}>{a.status}</span>
+              </div>
+              <div className="mt-3 flex items-center justify-end gap-2">
+                <button onClick={()=>viewDocs(a)} className="px-2 py-1 rounded-lg bg-gray-50 text-xs hover:bg-blue-50" style={{ color: PRIMARY }}>Docs</button>
+                {a.status !== "approved" && (
+                  <button onClick={()=>approve(a)} className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs">Approve</button>
+                )}
+                {a.status !== "rejected" && (
+                  <button onClick={()=>reject(a)} className="px-2 py-1 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs">Reject</button>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
-        {(loading ? Array.from({length: Math.min(8, pageSize)}).map((_,i)=>({id:i,full_name:"",email:"",specialization:"",license_number:"",status:"pending",phone:""})) : pageRows).map((a:any) => (
-          <div key={a.id} className="grid gap-2 px-4 py-3 items-center border-t text-sm hover:bg-blue-50/30 transition"
+        {/* Desktop/tablet table */}
+        <div className="hidden sm:block">
+          <div className="grid gap-2 px-4 py-3 text-xs font-medium text-gray-600 bg-gray-50/80 sticky top-0 z-10 backdrop-blur"
                style={{ gridTemplateColumns: "2fr 2fr 2fr 1.5fr 1fr 1.5fr" }}>
-            <div className="min-w-0">
-              <div className="font-medium truncate" style={{ color: PRIMARY }}>{a.full_name || "Loading"}</div>
-            </div>
-            <div className="text-gray-600 truncate min-w-0" title={a.email}>{a.email || "-"}</div>
-            <div className="text-gray-600 truncate min-w-0">{a.specialization || "General Practice"}</div>
-            <div className="text-gray-600 truncate min-w-0">{a.license_number || "-"}</div>
-            <div>
-              <span className={`px-2 py-1 rounded-full text-[11px] font-medium ${a.status==="approved"?"bg-green-100 text-green-700":a.status==="rejected"?"bg-rose-100 text-rose-700":"bg-amber-100 text-amber-700"}`}>{a.status}</span>
-            </div>
-            <div className="flex justify-end gap-2">
-              <button onClick={()=>viewDocs(a)} className="px-2 py-1 rounded-lg bg-gray-50 hover:bg-blue-50 text-xs inline-flex items-center gap-1" style={{ color: PRIMARY }}>
-                <EyeIcon className="w-4 h-4" /> Docs
-              </button>
-              {a.status !== "approved" && (
-                <button onClick={()=>approve(a)} className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs inline-flex items-center gap-1">
-                  <CheckCircleIcon className="w-4 h-4" /> Approve
-                </button>
-              )}
-              {a.status !== "rejected" && (
-                <button onClick={()=>reject(a)} className="px-2 py-1 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs inline-flex items-center gap-1">
-                  <XCircleIcon className="w-4 h-4" /> Reject
-                </button>
-              )}
-            </div>
+            <div>Name</div>
+            <div>Email</div>
+            <div>Specialization</div>
+            <div>License #</div>
+            <div>Status</div>
+            <div className="text-right">Actions</div>
           </div>
-        ))}
+          {(loading ? Array.from({length: Math.min(8, pageSize)}).map((_,i)=>({id:i,full_name:"",email:"",specialization:"",license_number:"",status:"pending",phone:""})) : pageRows).map((a:any) => (
+            <div key={a.id} className="grid gap-2 px-4 py-3 items-center border-t text-sm hover:bg-blue-50/30 transition"
+                 style={{ gridTemplateColumns: "2fr 2fr 2fr 1.5fr 1fr 1.5fr" }}>
+              <div className="min-w-0">
+                <div className="font-medium truncate" style={{ color: PRIMARY }}>{a.full_name || "Loading"}</div>
+              </div>
+              <div className="text-gray-600 truncate min-w-0" title={a.email}>{a.email || "-"}</div>
+              <div className="text-gray-600 truncate min-w-0">{a.specialization || "General Practice"}</div>
+              <div className="text-gray-600 truncate min-w-0">{a.license_number || "-"}</div>
+              <div>
+                <span className={`px-2 py-1 rounded-full text-[11px] font-medium ${a.status==="approved"?"bg-green-100 text-green-700":a.status==="rejected"?"bg-rose-100 text-rose-700":"bg-amber-100 text-amber-700"}`}>{a.status}</span>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button onClick={()=>viewDocs(a)} className="px-2 py-1 rounded-lg bg-gray-50 hover:bg-blue-50 text-xs inline-flex items-center gap-1" style={{ color: PRIMARY }}>
+                  <EyeIcon className="w-4 h-4" /> Docs
+                </button>
+                {a.status !== "approved" && (
+                  <button onClick={()=>approve(a)} className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs inline-flex items-center gap-1">
+                    <CheckCircleIcon className="w-4 h-4" /> Approve
+                  </button>
+                )}
+                {a.status !== "rejected" && (
+                  <button onClick={()=>reject(a)} className="px-2 py-1 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs inline-flex items-center gap-1">
+                    <XCircleIcon className="w-4 h-4" /> Reject
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="flex items-center justify-between gap-3">

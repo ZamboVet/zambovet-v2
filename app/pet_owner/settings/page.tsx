@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import { supabase } from "../../../lib/supabaseClient";
 import { swalConfirmColor } from "../../../lib/ui/tokens";
-import { CheckCircleIcon, IdentificationIcon, BellAlertIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
+import { CheckCircleIcon, IdentificationIcon, BellAlertIcon, ShieldCheckIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 
 export default function OwnerSettingsPage() {
   const [loading, setLoading] = useState(true);
@@ -66,7 +66,7 @@ export default function OwnerSettingsPage() {
       const { error } = await supabase
         .from("pet_owner_profiles")
         .update({
-          full_name: fullName.trim() || null,
+          full_name: fullName.trim() || "",
           phone: phone.trim() || null,
           address: address.trim() || null,
           updated_at: new Date().toISOString(),
@@ -156,36 +156,117 @@ export default function OwnerSettingsPage() {
     }
   };
 
+  const restoreToDefaults = async () => {
+    const res = await Swal.fire({
+      title: "Restore to Default?",
+      html: "<div style='text-align:left'>This will reset all your settings to their default values:<br/><br/>" +
+            "• Profile information (name, phone, address) will be cleared<br/>" +
+            "• Profile picture will be removed<br/>" +
+            "• Notification preferences will be reset to defaults<br/><br/>" +
+            "This action cannot be undone. Continue?</div>",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes, restore defaults",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: swalConfirmColor,
+    });
+
+    if (!res.isConfirmed) return;
+
+    setSaving(true);
+    try {
+      // Reset profile fields to empty/null
+      if (ownerId) {
+        const { error: profileError } = await supabase
+          .from("pet_owner_profiles")
+          .update({
+            full_name: "",
+            phone: null,
+            address: null,
+            profile_picture_url: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", ownerId);
+        if (profileError) throw profileError;
+
+        // Update local state
+        setFullName("");
+        setPhone("");
+        setAddress("");
+        setAvatarUrl(null);
+        try {
+          localStorage.removeItem("po_avatar_url");
+        } catch {}
+        try {
+          window.dispatchEvent(new CustomEvent("po_avatar_updated", { detail: null }));
+        } catch {}
+      }
+
+      // Reset notification preferences to defaults
+      const { error: prefError } = await supabase.auth.updateUser({
+        data: {
+          notifications_email: true,
+          notifications_push: true,
+          reminders_enabled: true,
+          marketing_opt_in: false,
+        },
+      });
+      if (prefError) throw prefError;
+
+      // Update local state
+      setPrefEmail(true);
+      setPrefPush(true);
+      setPrefReminders(true);
+      setPrefMarketing(false);
+
+      await Swal.fire({
+        icon: "success",
+        title: "Settings Restored",
+        text: "All settings have been reset to their default values.",
+        confirmButtonColor: swalConfirmColor,
+      });
+    } catch (e: any) {
+      await Swal.fire({
+        icon: "error",
+        title: "Restore Failed",
+        text: e?.message || "Failed to restore settings. Please try again.",
+        confirmButtonColor: swalConfirmColor,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="rounded-3xl bg-white/80 backdrop-blur-sm shadow ring-1 ring-black/5 p-5 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-blue-600 text-white grid place-items-center">
-            <IdentificationIcon className="w-5 h-5" />
+    <div className="space-y-4 sm:space-y-5 md:space-y-6">
+      <div className="rounded-lg sm:rounded-2xl md:rounded-3xl bg-white/80 backdrop-blur-sm shadow ring-1 ring-black/5 p-3 sm:p-4 md:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+          <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl bg-blue-600 text-white grid place-items-center flex-shrink-0">
+            <IdentificationIcon className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
-          <div>
-            <div className="text-lg font-semibold text-neutral-900">Owner Settings</div>
-            <div className="text-sm text-neutral-500">Manage profile, notifications and security</div>
+          <div className="min-w-0">
+            <div className="text-base sm:text-lg font-semibold text-neutral-900 truncate">Owner Settings</div>
+            <div className="text-xs sm:text-sm text-neutral-500 truncate">Manage profile, notifications and security</div>
           </div>
         </div>
-        <div className="hidden sm:block text-xs text-neutral-500 inline-flex items-center gap-1">
-          <CheckCircleIcon className="w-4 h-4 text-emerald-600" /> Secure & synced
+        <div className="hidden sm:flex text-[10px] sm:text-xs text-neutral-500 items-center gap-1">
+          <CheckCircleIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" /> <span>Secure & synced</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
         {/* Avatar */}
-        <section className="rounded-3xl bg-white/80 backdrop-blur-sm shadow ring-1 ring-black/5 p-5 space-y-4">
+        <section className="rounded-lg sm:rounded-2xl md:rounded-3xl bg-white/80 backdrop-blur-sm shadow ring-1 ring-black/5 p-3 sm:p-4 md:p-5 space-y-3 sm:space-y-4">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-neutral-900">Profile Picture</span>
+            <span className="font-semibold text-sm sm:text-base text-neutral-900">Profile Picture</span>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="h-20 w-20 rounded-2xl overflow-hidden ring-1 ring-neutral-200 bg-neutral-100 grid place-items-center text-neutral-600">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+            <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-xl sm:rounded-2xl overflow-hidden ring-1 ring-neutral-200 bg-neutral-100 grid place-items-center text-neutral-600 flex-shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : <span className="text-sm">No photo</span>}
+              {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : <span className="text-xs sm:text-sm">No photo</span>}
             </div>
-            <div className="space-x-2">
-              <label className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white ring-1 ring-neutral-200 hover:bg-neutral-50 text-sm cursor-pointer">
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <label className="inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 hover:bg-neutral-50 text-xs sm:text-sm cursor-pointer active:scale-95">
                 <input type="file" accept="image/*" className="hidden" onChange={(e) => {
                   const f = e.target.files?.[0]; if (!f) return; if (f.size > 5 * 1024 * 1024) { Swal.fire({ icon: 'error', title: 'Max 5MB', confirmButtonColor: swalConfirmColor }); return; }
                   uploadAvatar(f);
@@ -193,44 +274,44 @@ export default function OwnerSettingsPage() {
                 Upload
               </label>
               {avatarUrl && (
-                <button onClick={removeAvatar} className="px-4 py-2 rounded-xl bg-white ring-1 ring-neutral-200 hover:bg-neutral-50 text-sm">Remove</button>
+                <button onClick={removeAvatar} className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 hover:bg-neutral-50 text-xs sm:text-sm active:scale-95">Remove</button>
               )}
             </div>
           </div>
         </section>
         {/* Profile */}
-        <section className="rounded-3xl bg-white/80 backdrop-blur-sm shadow ring-1 ring-black/5 p-5 space-y-4">
+        <section className="rounded-lg sm:rounded-2xl md:rounded-3xl bg-white/80 backdrop-blur-sm shadow ring-1 ring-black/5 p-3 sm:p-4 md:p-5 space-y-3 sm:space-y-4">
           <div className="flex items-center gap-2">
-            <IdentificationIcon className="w-5 h-5 text-blue-600" />
-            <span className="font-semibold text-neutral-900">Profile</span>
+            <IdentificationIcon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+            <span className="font-semibold text-sm sm:text-base text-neutral-900">Profile</span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
-              <label className="block text-sm text-neutral-600 mb-1">Full name</label>
-              <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full px-4 py-2 rounded-xl border border-neutral-200 outline-none focus:ring-2 focus:ring-blue-500" />
+              <label className="block text-xs sm:text-sm text-neutral-600 mb-1">Full name</label>
+              <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-neutral-200 outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm" />
             </div>
             <div>
-              <label className="block text-sm text-neutral-600 mb-1">Phone</label>
-              <input value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-4 py-2 rounded-xl border border-neutral-200 outline-none focus:ring-2 focus:ring-blue-500" />
+              <label className="block text-xs sm:text-sm text-neutral-600 mb-1">Phone</label>
+              <input value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-neutral-200 outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm" />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-sm text-neutral-600 mb-1">Address</label>
-              <input value={address} onChange={(e) => setAddress(e.target.value)} className="w-full px-4 py-2 rounded-xl border border-neutral-200 outline-none focus:ring-2 focus:ring-blue-500" />
+              <label className="block text-xs sm:text-sm text-neutral-600 mb-1">Address</label>
+              <input value={address} onChange={(e) => setAddress(e.target.value)} className="w-full px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-neutral-200 outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm" />
             </div>
           </div>
-          <div className="flex items-center justify-end gap-3">
-            <button disabled={saving || loading} onClick={saveProfile} className="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 text-sm font-medium disabled:opacity-60">Save Profile</button>
+          <div className="flex items-center justify-end gap-2 sm:gap-3">
+            <button disabled={saving || loading} onClick={saveProfile} className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-blue-600 text-white hover:bg-blue-700 text-xs sm:text-sm font-medium disabled:opacity-60 active:scale-95">Save Profile</button>
           </div>
         </section>
 
         {/* Security */}
-        <section className="rounded-3xl bg-white/80 backdrop-blur-sm shadow ring-1 ring-black/5 p-5 space-y-4 lg:col-span-2">
+        <section className="rounded-lg sm:rounded-2xl md:rounded-3xl bg-white/80 backdrop-blur-sm shadow ring-1 ring-black/5 p-3 sm:p-4 md:p-5 space-y-3 sm:space-y-4 lg:col-span-2">
           <div className="flex items-center gap-2">
-            <ShieldCheckIcon className="w-5 h-5 text-emerald-600" />
-            <span className="font-semibold text-neutral-900">Security</span>
+            <ShieldCheckIcon className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
+            <span className="font-semibold text-sm sm:text-base text-neutral-900">Security</span>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <button onClick={changePassword} className="px-4 py-2 rounded-xl bg-white ring-1 ring-neutral-200 hover:bg-neutral-50 text-sm">Change password</button>
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2 sm:gap-3">
+            <button onClick={changePassword} className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 hover:bg-neutral-50 text-xs sm:text-sm active:scale-95">Change password</button>
             <button onClick={async () => {
               const res = await Swal.fire({ title: "Sign out of all sessions?", icon: "warning", showCancelButton: true, confirmButtonColor: swalConfirmColor });
               if (!res.isConfirmed) return;
@@ -241,7 +322,7 @@ export default function OwnerSettingsPage() {
               } catch (e: any) {
                 await Swal.fire({ icon: "error", title: "Failed", text: e?.message, confirmButtonColor: swalConfirmColor });
               }
-            }} className="px-4 py-2 rounded-xl bg-white ring-1 ring-neutral-200 hover:bg-neutral-50 text-sm">Sign out all sessions</button>
+            }} className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 hover:bg-neutral-50 text-xs sm:text-sm active:scale-95">Sign out all sessions</button>
             <button onClick={async () => {
               const res = await Swal.fire({
                 title: 'Delete account?',
@@ -267,7 +348,27 @@ export default function OwnerSettingsPage() {
               } catch (e:any) {
                 await Swal.fire({ icon:'error', title:'Deletion failed', text: e?.message || 'Please try again.' });
               }
-            }} className="px-4 py-2 rounded-xl bg-red-50 text-red-700 ring-1 ring-red-200 hover:bg-red-100 text-sm">Delete account</button>
+            }} className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-red-50 text-red-700 ring-1 ring-red-200 hover:bg-red-100 text-xs sm:text-sm active:scale-95">Delete account</button>
+          </div>
+        </section>
+
+        {/* Reset Options */}
+        <section className="rounded-lg sm:rounded-2xl md:rounded-3xl bg-white/80 backdrop-blur-sm shadow ring-1 ring-black/5 p-3 sm:p-4 md:p-5 space-y-3 sm:space-y-4 lg:col-span-2">
+          <div className="flex items-center gap-2">
+            <ArrowPathIcon className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
+            <span className="font-semibold text-sm sm:text-base text-neutral-900">Reset Options</span>
+          </div>
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2 sm:gap-3">
+            <button
+              onClick={restoreToDefaults}
+              disabled={saving || loading}
+              className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-amber-50 text-amber-700 ring-1 ring-amber-200 hover:bg-amber-100 text-xs sm:text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed active:scale-95"
+            >
+              Restore to Default
+            </button>
+            <p className="text-[10px] sm:text-xs text-neutral-500 flex-1">
+              Reset all profile information, preferences, and remove profile picture to default values
+            </p>
           </div>
         </section>
       </div>

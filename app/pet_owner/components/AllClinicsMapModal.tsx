@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { XMarkIcon, MapPinIcon } from "@heroicons/react/24/outline";
+import { supabase } from "../../../lib/supabaseClient";
 
 export type AllClinicsMapModalProps = {
   open: boolean;
@@ -9,11 +10,88 @@ export type AllClinicsMapModalProps = {
   points: Array<{ id: number; name: string; lat: number; lon: number; address?: string | null }>;
 };
 
+type Service = { id: number; clinic_id: number; name: string; description: string | null; is_active: boolean };
+
 export default function AllClinicsMapModal({ open, onClose, points }: AllClinicsMapModalProps) {
   const modalRef = useRef<HTMLDivElement | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
+  const [clinicServices, setClinicServices] = useState<Record<number, Service[]>>({});
+  const [loadingServices, setLoadingServices] = useState(false);
+
+  // Inject custom CSS for popup styling
+  useEffect(() => {
+    if (!open) return;
+    const styleId = 'clinic-popup-styles';
+    if (document.getElementById(styleId)) return;
+    
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      .clinic-popup .leaflet-popup-content-wrapper {
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        padding: 0;
+      }
+      .clinic-popup .leaflet-popup-content {
+        margin: 0;
+        padding: 12px;
+        min-width: 200px;
+        max-width: 320px;
+      }
+      .clinic-popup .leaflet-popup-tip {
+        background: white;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      }
+      @media (max-width: 640px) {
+        .clinic-popup .leaflet-popup-content {
+          max-width: 280px;
+          padding: 10px;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      const existing = document.getElementById(styleId);
+      if (existing) existing.remove();
+    };
+  }, [open]);
+
+  // Fetch services for all clinics
+  useEffect(() => {
+    if (!open || points.length === 0) return;
+    const fetchServices = async () => {
+      setLoadingServices(true);
+      try {
+        const clinicIds = points.map(p => p.id);
+        const { data, error } = await supabase
+          .from('services')
+          .select('id, clinic_id, name, description, is_active')
+          .in('clinic_id', clinicIds)
+          .eq('is_active', true)
+          .order('name', { ascending: true });
+        
+        if (error) throw error;
+        
+        const servicesByClinic: Record<number, Service[]> = {};
+        (data || []).forEach((service: any) => {
+          if (!servicesByClinic[service.clinic_id]) {
+            servicesByClinic[service.clinic_id] = [];
+          }
+          servicesByClinic[service.clinic_id].push(service);
+        });
+        
+        setClinicServices(servicesByClinic);
+      } catch (e) {
+        console.error('Failed to fetch services:', e);
+      } finally {
+        setLoadingServices(false);
+      }
+    };
+    fetchServices();
+  }, [open, points]);
 
   // Focus trap + ESC
   useEffect(() => {
@@ -62,20 +140,86 @@ export default function AllClinicsMapModal({ open, onClose, points }: AllClinics
         markersRef.current = [];
         const icon = L.icon({ iconUrl: '/paw.webp', iconSize: [32, 32], iconAnchor: [16, 16] });
         const bounds = L.latLngBounds([]);
+        
+        // Helper function to escape HTML
+        const escapeHtml = (text: string | null | undefined): string => {
+          if (!text) return '';
+          const div = document.createElement('div');
+          div.textContent = text;
+          return div.innerHTML;
+        };
+        
+        // Helper function to create popup HTML with services
+        const createPopupHTML = (clinicId: number, clinicName: string, address: string | null) => {
+          const services = clinicServices[clinicId] || [];
+          const hasServices = services.length > 0;
+          const escapedName = escapeHtml(clinicName);
+          const escapedAddress = address ? escapeHtml(address) : '';
+          
+          let html = `
+            <div style="min-width:200px;max-width:320px;font-family:system-ui,-apple-system,sans-serif">
+              <div style="font-weight:600;font-size:15px;color:#111827;margin-bottom:8px;line-height:1.4">${escapedName}</div>
+              ${escapedAddress ? `<div style="font-size:12px;color:#6b7280;display:flex;gap:6px;align-items:start;margin-bottom:${hasServices ? '12px' : '0'};line-height:1.5">
+                <span style="flex-shrink:0;margin-top:2px">📍</span>
+                <span>${escapedAddress}</span>
+              </div>` : ''}
+              ${hasServices ? `
+                <div style="border-top:1px solid #e5e7eb;padding-top:10px;margin-top:10px">
+                  <div style="font-weight:600;font-size:12px;color:#059669;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">Available Services</div>
+                  <div style="display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto">
+                    ${services.map(s => {
+                      const escapedServiceName = escapeHtml(s.name);
+                      const escapedDescription = s.description ? escapeHtml(s.description) : '';
+                      return `
+                      <div style="padding:6px 8px;background:#f0fdf4;border-left:3px solid #10b981;border-radius:4px">
+                        <div style="font-weight:500;font-size:13px;color:#111827;margin-bottom:${escapedDescription ? '4px' : '0'}">${escapedServiceName}</div>
+                        ${escapedDescription ? `<div style="font-size:11px;color:#6b7280;line-height:1.4">${escapedDescription}</div>` : ''}
+                      </div>
+                    `;
+                    }).join('')}
+                  </div>
+                </div>
+              ` : `
+                <div style="border-top:1px solid #e5e7eb;padding-top:10px;margin-top:10px">
+                  <div style="font-size:12px;color:#9ca3af;font-style:italic">No services listed</div>
+                </div>
+              `}
+            </div>
+          `;
+          return html;
+        };
+        
         coords.forEach(p => {
           const mk = L.marker([p.lat, p.lon], { icon }).addTo(mapRef.current);
-          mk.bindPopup(`<div style="min-width:180px"><div style="font-weight:600">${p.name}</div><div style="font-size:12px;color:#6b7280;display:flex;gap:6px;align-items:center"><span>📍</span><span>${p.address ? String(p.address).replace(/`/g,'') : ''}</span></div></div>`);
+          // Create popup with services
+          const popupContent = createPopupHTML(p.id, p.name, p.address ?? null);
+          mk.bindPopup(popupContent, { 
+            maxWidth: 350,
+            className: 'clinic-popup'
+          });
           markersRef.current.push(mk);
           // @ts-ignore
           bounds.extend([p.lat, p.lon]);
         });
+        
+        // Update popups when services are loaded
+        if (Object.keys(clinicServices).length > 0) {
+          markersRef.current.forEach((mk, idx) => {
+            const p = coords[idx];
+            if (p) {
+              const popupContent = createPopupHTML(p.id, p.name, p.address ?? null);
+              mk.setPopupContent(popupContent);
+            }
+          });
+        }
+        
         if (coords.length > 1) mapRef.current.fitBounds(bounds.pad(0.15));
       } catch {
         // ignore if leaflet not available yet
       }
     })();
     return () => { cancelled = true; };
-  }, [open, points]);
+  }, [open, points, clinicServices]);
 
   // Cleanup
   useEffect(() => {
@@ -108,7 +252,9 @@ export default function AllClinicsMapModal({ open, onClose, points }: AllClinics
               </div>
               <div>
                 <div className="text-lg font-semibold">All Clinics Map</div>
-                <div className="text-xs text-neutral-500">Showing clinic locations</div>
+                <div className="text-xs text-neutral-500">
+                  {loadingServices ? 'Loading services...' : 'Click markers to view clinic services'}
+                </div>
               </div>
             </div>
             <button onClick={onClose} className="p-2 rounded-lg hover:bg-neutral-100" aria-label="Close">

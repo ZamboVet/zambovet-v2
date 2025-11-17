@@ -218,42 +218,42 @@ export default function OwnerClinicsPage() {
   }, [query]);
 
   return (
-    <div className="min-h-screen bg-neutral-50 px-3 sm:px-4 lg:px-6 py-4 sm:py-6">
-      <div className="mx-auto max-w-7xl space-y-4 sm:space-y-6">
+    <div className="min-h-screen bg-neutral-50 px-3 sm:px-4 md:px-6 py-4 sm:py-5 md:py-6">
+      <div className="mx-auto max-w-7xl space-y-3 sm:space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="rounded-2xl sm:rounded-3xl bg-white/80 backdrop-blur-sm shadow ring-1 ring-black/5 p-3 sm:p-5 flex flex-col gap-3">
+      <div className="rounded-lg sm:rounded-2xl md:rounded-3xl bg-white/80 backdrop-blur-sm shadow ring-1 ring-black/5 p-3 sm:p-4 md:p-5 flex flex-col gap-2.5 sm:gap-3">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl bg-emerald-600 text-white flex-shrink-0 grid place-items-center">
+          <div className="h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 rounded-lg sm:rounded-xl bg-emerald-600 text-white flex-shrink-0 grid place-items-center">
             <BuildingOffice2Icon className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           <div className="min-w-0">
-            <div className="text-base sm:text-lg font-semibold text-neutral-900">Clinics</div>
-            <div className="text-xs sm:text-sm text-neutral-500 truncate">Find a clinic and book a visit</div>
+            <div className="text-sm sm:text-base md:text-lg font-semibold text-neutral-900 truncate">Clinics</div>
+            <div className="text-[10px] sm:text-xs md:text-sm text-neutral-500 truncate">Find a clinic and book a visit</div>
           </div>
         </div>
         
         {/* Filters - Mobile First Design */}
-        <div className="flex flex-col gap-2 sm:gap-3">
+        <div className="flex flex-col gap-2 sm:gap-2.5 md:gap-3">
           {/* Search bar - Full width on mobile */}
-          <div className="flex items-center gap-2 px-2.5 sm:px-3 py-2 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200">
-            <MagnifyingGlassIcon className="w-4 h-4 text-neutral-500 flex-shrink-0" />
-            <input ref={searchRef} defaultValue={query} onChange={(e)=> onSearchChange(e.target.value)} placeholder="Search clinics" className="w-full outline-none text-sm bg-transparent" />
+          <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 md:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200">
+            <MagnifyingGlassIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-500 flex-shrink-0" />
+            <input ref={searchRef} defaultValue={query} onChange={(e)=> onSearchChange(e.target.value)} placeholder="Search clinics" className="w-full outline-none text-xs sm:text-sm bg-transparent" />
           </div>
           
           {/* Filter row */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-            <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 text-xs sm:text-sm flex-1 sm:flex-none">
-              <span className="text-neutral-500 font-medium">City</span>
-              <select value={city} onChange={(e)=> setCity(e.target.value)} className="outline-none bg-transparent font-medium min-w-0">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2.5 md:gap-3">
+            <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 text-[10px] sm:text-xs md:text-sm flex-1 sm:flex-none min-w-0">
+              <span className="text-neutral-500 font-medium whitespace-nowrap">City</span>
+              <select value={city} onChange={(e)=> setCity(e.target.value)} className="outline-none bg-transparent font-medium flex-1 min-w-0">
                 <option value="all">All</option>
                 {allCities.map(c => (<option key={c} value={c}>{c}</option>))}
               </select>
             </div>
-            <label className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 cursor-pointer text-xs sm:text-sm flex-1 sm:flex-none">
+            <label className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 cursor-pointer text-[10px] sm:text-xs md:text-sm flex-1 sm:flex-none">
               <input type="checkbox" checked={onlyAvailable} onChange={(e)=> setOnlyAvailable(e.target.checked)} className="rounded" />
-              <span className="font-medium">Only available</span>
+              <span className="font-medium whitespace-nowrap">Only available</span>
             </label>
-            <button onClick={onOpenAllMap} className="px-3 py-2 rounded-lg sm:rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 text-xs sm:text-sm font-medium flex-1 sm:flex-none text-center">
+            <button onClick={onOpenAllMap} className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 text-[10px] sm:text-xs md:text-sm font-medium flex-1 sm:flex-none text-center active:scale-95">
               <span className="hidden sm:inline">View all clinics</span>
               <span className="sm:hidden">View Map</span>
             </button>
@@ -262,18 +262,18 @@ export default function OwnerClinicsPage() {
       </div>
 
       {/* Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
         {loading ? (
           Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="rounded-lg sm:rounded-2xl border border-neutral-200 bg-white shadow-sm h-32 sm:h-40 animate-pulse" />
+            <div key={i} className="rounded-lg sm:rounded-2xl border border-neutral-200 bg-white shadow-sm h-32 sm:h-36 md:h-40 animate-pulse" />
           ))
         ) : filtered.length === 0 ? (
-          <div className="col-span-full rounded-lg sm:rounded-2xl border border-dashed border-neutral-300 bg-white shadow-sm p-6 sm:p-10 text-center">
+          <div className="col-span-full rounded-lg sm:rounded-2xl border border-dashed border-neutral-300 bg-white shadow-sm p-4 sm:p-6 md:p-10 text-center">
             <div className="mx-auto mb-2 sm:mb-3 h-10 w-10 sm:h-12 sm:w-12 rounded-lg sm:rounded-2xl bg-emerald-50 text-emerald-600 grid place-items-center">
               <BuildingOffice2Icon className="h-5 w-5 sm:h-6 sm:w-6" />
             </div>
-            <p className="text-neutral-700 font-medium mb-1 text-sm sm:text-base">No clinics found</p>
-            <p className="text-neutral-500 text-xs sm:text-sm">Try a different search.</p>
+            <p className="text-neutral-700 font-medium mb-1 text-xs sm:text-sm md:text-base">No clinics found</p>
+            <p className="text-neutral-500 text-[10px] sm:text-xs md:text-sm">Try a different search.</p>
           </div>
         ) : (
           filtered.map(c => (
@@ -281,18 +281,18 @@ export default function OwnerClinicsPage() {
               <div className="p-3 sm:p-4">
                 <div className="flex items-start justify-between gap-2 sm:gap-3">
                   <div className="flex items-start gap-2 sm:gap-3 min-w-0 flex-1">
-                    <div className="shrink-0 h-8 w-8 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl bg-emerald-50 text-emerald-700 grid place-items-center ring-1 ring-emerald-100">
+                    <div className="shrink-0 h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 rounded-lg sm:rounded-xl bg-emerald-50 text-emerald-700 grid place-items-center ring-1 ring-emerald-100">
                       <BuildingOffice2Icon className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <Link href={`/pet_owner/clinics/${c.id}`} className="block font-semibold text-neutral-900 tracking-tight text-sm sm:text-base line-clamp-2 hover:underline" title={c.name}>{c.name}</Link>
-                      <div className="mt-1 flex items-start gap-1.5 text-xs sm:text-sm text-neutral-600">
-                        <MapPinIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 mt-0.5 shrink-0" />
+                      <Link href={`/pet_owner/clinics/${c.id}`} className="block font-semibold text-neutral-900 tracking-tight text-xs sm:text-sm md:text-base line-clamp-2 hover:underline" title={c.name}>{c.name}</Link>
+                      <div className="mt-1 flex items-start gap-1.5 text-[10px] sm:text-xs md:text-sm text-neutral-600">
+                        <MapPinIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 mt-0.5 shrink-0" />
                         <span className="line-clamp-2 break-words" title={c.address || 'No address'}>{c.address || "No address"}</span>
                       </div>
                       {c.phone && (
-                        <div className="mt-1 flex items-center gap-1.5 text-xs sm:text-sm text-neutral-600">
-                          <PhoneIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                        <div className="mt-1 flex items-center gap-1.5 text-[10px] sm:text-xs md:text-sm text-neutral-600">
+                          <PhoneIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 shrink-0" />
                           <span className="truncate" title={c.phone}>{c.phone}</span>
                         </div>
                       )}
@@ -310,17 +310,17 @@ export default function OwnerClinicsPage() {
                     )}
                   </div>
                 </div>
-                <div className="mt-3 sm:mt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-                  <button onClick={() => { setPresetClinic(c.id); setModalOpen(true); }} className="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 inline-flex items-center justify-center gap-1.5 sm:gap-2 font-medium">
-                    <PlusIcon className="w-4 h-4" /> Book
+                <div className="mt-2.5 sm:mt-3 md:mt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2.5 md:gap-3">
+                  <button onClick={() => { setPresetClinic(c.id); setModalOpen(true); }} className="flex-1 sm:flex-none px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs md:text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 inline-flex items-center justify-center gap-1.5 sm:gap-2 font-medium active:scale-95">
+                    <PlusIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span>Book</span>
                   </button>
                   <div className="flex items-center gap-1.5 sm:gap-2 flex-1 sm:flex-none justify-end">
-                    <button onClick={() => { setDetailsId(c.id); setDetailsOpen(true); }} className="flex-1 sm:flex-none p-1.5 sm:p-2 rounded-lg bg-white ring-1 ring-neutral-200 hover:bg-neutral-50 text-emerald-700 flex items-center justify-center" title="View location">
-                      <MapPinIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <button onClick={() => { setDetailsId(c.id); setDetailsOpen(true); }} className="flex-1 sm:flex-none p-1.5 sm:p-2 rounded-lg bg-white ring-1 ring-neutral-200 hover:bg-neutral-50 text-emerald-700 flex items-center justify-center active:scale-95" title="View location">
+                      <MapPinIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
                     </button>
                     {c.phone && (
-                      <a href={`tel:${c.phone}`} className="flex-1 sm:flex-none p-1.5 sm:p-2 rounded-lg bg-white ring-1 ring-neutral-200 hover:bg-neutral-50 text-blue-700 flex items-center justify-center" title="Call clinic">
-                        <PhoneIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <a href={`tel:${c.phone}`} className="flex-1 sm:flex-none p-1.5 sm:p-2 rounded-lg bg-white ring-1 ring-neutral-200 hover:bg-neutral-50 text-blue-700 flex items-center justify-center active:scale-95" title="Call clinic">
+                        <PhoneIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
                       </a>
                     )}
                   </div>
@@ -330,37 +330,37 @@ export default function OwnerClinicsPage() {
                 <div className="border-t border-neutral-100">
                   <button
                     onClick={() => setExpandedClinic(expandedClinic === c.id ? null : c.id)}
-                    className="w-full px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between hover:bg-neutral-50 transition text-xs sm:text-sm font-medium text-neutral-700"
+                    className="w-full px-2.5 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 flex items-center justify-between hover:bg-neutral-50 transition text-[10px] sm:text-xs md:text-sm font-medium text-neutral-700 active:bg-neutral-100"
                   >
-                    <div className="flex items-center gap-2">
-                      <StarIcon className="w-4 h-4 text-amber-500" />
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <StarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" />
                       <span>{clinicReviews[c.id]!.length} review{clinicReviews[c.id]!.length !== 1 ? 's' : ''}</span>
                     </div>
-                    <ChevronDownIcon className={`w-4 h-4 transition-transform ${expandedClinic === c.id ? 'rotate-180' : ''}`} />
+                    <ChevronDownIcon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform ${expandedClinic === c.id ? 'rotate-180' : ''}`} />
                   </button>
                   {expandedClinic === c.id && (
-                    <div className="px-3 sm:px-4 py-3 sm:py-4 space-y-3 bg-neutral-50">
+                    <div className="px-2.5 sm:px-3 md:px-4 py-2.5 sm:py-3 md:py-4 space-y-2 sm:space-y-3 bg-neutral-50">
                       {clinicReviews[c.id]!.slice(0, 3).map((review) => (
-                        <div key={review.id} className="rounded-lg bg-white p-2.5 sm:p-3 border border-neutral-200 text-xs sm:text-sm">
-                          <div className="flex items-center gap-2 mb-1">
+                        <div key={review.id} className="rounded-lg bg-white p-2 sm:p-2.5 md:p-3 border border-neutral-200 text-[10px] sm:text-xs md:text-sm">
+                          <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
                             <div className="flex items-center gap-0.5">
                               {Array.from({ length: 5 }).map((_, i) => (
                                 <StarIcon
                                   key={i}
-                                  className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${i < review.rating ? 'fill-amber-400 text-amber-400' : 'text-neutral-300'}`}
+                                  className={`w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-3.5 md:h-3.5 ${i < review.rating ? 'fill-amber-400 text-amber-400' : 'text-neutral-300'}`}
                                 />
                               ))}
                             </div>
-                            <span className="text-neutral-500 text-[10px] sm:text-xs">
+                            <span className="text-neutral-500 text-[9px] sm:text-[10px] md:text-xs">
                               {new Date(review.created_at).toLocaleDateString()}
                             </span>
                           </div>
-                          {review.title && <p className="font-medium text-neutral-900 mb-1">{review.title}</p>}
-                          {review.comment && <p className="text-neutral-600 line-clamp-2">{review.comment}</p>}
+                          {review.title && <p className="font-medium text-neutral-900 mb-0.5 sm:mb-1 text-[10px] sm:text-xs md:text-sm">{review.title}</p>}
+                          {review.comment && <p className="text-neutral-600 line-clamp-2 text-[10px] sm:text-xs md:text-sm">{review.comment}</p>}
                         </div>
                       ))}
                       {clinicReviews[c.id]!.length > 3 && (
-                        <p className="text-center text-neutral-500 text-xs py-1">+{clinicReviews[c.id]!.length - 3} more review{clinicReviews[c.id]!.length - 3 !== 1 ? 's' : ''}</p>
+                        <p className="text-center text-neutral-500 text-[10px] sm:text-xs py-1">+{clinicReviews[c.id]!.length - 3} more review{clinicReviews[c.id]!.length - 3 !== 1 ? 's' : ''}</p>
                       )}
                     </div>
                   )}

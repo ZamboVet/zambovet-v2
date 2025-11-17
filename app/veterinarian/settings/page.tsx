@@ -261,12 +261,12 @@ export default function VetSettingsPage() {
 
   return (
     <div className={`${poppins.className} space-y-6`}>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
           <div className="text-xs text-gray-500">Dashboard / Settings</div>
           <h1 className="text-2xl font-bold" style={{ color: PRIMARY }}>Settings</h1>
         </div>
-        <button onClick={saveProfile} disabled={saving} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2">
+        <button onClick={saveProfile} disabled={saving} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 w-full sm:w-auto">
           {saving ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : null}
           Save Changes
         </button>

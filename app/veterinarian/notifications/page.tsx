@@ -121,16 +121,16 @@ export default function VetNotifications() {
 
   return (
     <div className={`${poppins.className} space-y-6`}>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold" style={{ color: PRIMARY }}>Notifications</h1>
           <div className="text-sm text-gray-500">New appointments, cancellations, and reviews</div>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => fetchList()} disabled={loading} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/80 ring-1 ring-gray-100 hover:bg-white">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+          <button onClick={() => fetchList()} disabled={loading} className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white/80 ring-1 ring-gray-100 hover:bg-white w-full sm:w-auto">
             <ArrowPathIcon className={`w-4 h-4 ${loading?"animate-spin":""}`} /> Refresh
           </button>
-          <button onClick={markAll} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700">
+          <button onClick={markAll} className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 w-full sm:w-auto">
             <CheckCircleIcon className="w-4 h-4" /> Mark all read
           </button>
         </div>

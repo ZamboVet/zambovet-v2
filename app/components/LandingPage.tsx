@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { supabase } from "../../lib/supabaseClient";
 import {
   HeartIcon,
   CalendarDaysIcon,
@@ -9,7 +10,6 @@ import {
   ShieldCheckIcon,
   PhoneIcon,
   EnvelopeIcon,
-  MapPinIcon,
   Bars3Icon,
   XMarkIcon,
   ChevronDownIcon,
@@ -38,10 +38,20 @@ const DEFAULT_SETTINGS = {
   accentColor: "#fffbde",
 };
 
+type Service = { id: number; name: string; description: string | null };
+type ReviewItem = { id: number; rating: number; title: string | null; comment: string | null };
+type ClinicContact = { phone: string | null; email: string | null; address: string | null };
+
 export default function StaticLandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const settings = DEFAULT_SETTINGS;
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [mounted, setMounted] = useState(false);
+  const [legalOpen, setLegalOpen] = useState(false);
+  const [legalType, setLegalType] = useState<"privacy"|"terms"|"cookies">("privacy");
+  const [services, setServices] = useState<Service[]>([]);
+  const [testimonials, setTestimonials] = useState<ReviewItem[]>([]);
+  const [contact, setContact] = useState<ClinicContact>({ phone: null, email: null, address: null });
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
@@ -49,13 +59,67 @@ export default function StaticLandingPage() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Load dynamic landing content
+  useEffect(() => {
+    (async () => {
+      try {
+        // Settings JSON
+        const { data: s } = await supabase
+          .from('landing_page_settings')
+          .select('settings')
+          .eq('id', 1)
+          .maybeSingle();
+        if ((s as any)?.settings) {
+          const merged = { ...DEFAULT_SETTINGS, ...(s as any).settings };
+          setSettings(merged);
+        }
+      } catch {}
+      try {
+        // Active services
+        const { data } = await supabase
+          .from('services')
+          .select('id,name,description,is_active')
+          .eq('is_active', true)
+          .limit(8);
+        setServices(((data||[]) as any[]).map(r=>({ id: r.id, name: r.name, description: r.description || null })));
+      } catch {}
+      try {
+        // Approved reviews
+        const { data } = await supabase
+          .from('reviews')
+          .select('id,rating,title,comment,is_approved')
+          .eq('is_approved', true)
+          .order('id', { ascending: false })
+          .limit(6);
+        setTestimonials(((data||[]) as any[]).map(r=>({ id: r.id, rating: r.rating, title: r.title || null, comment: r.comment || null })));
+      } catch {}
+      try {
+        // Primary clinic contact
+        const { data } = await supabase
+          .from('clinics')
+          .select('phone,email,address,is_active')
+          .eq('is_active', true)
+          .order('id', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (data) setContact({ phone: (data as any).phone || null, email: (data as any).email || null, address: (data as any).address || null });
+      } catch {}
+    })();
+  }, []);
+
   const scrollToSection = (sectionId: string) => {
     document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth" });
     setIsMenuOpen(false);
   };
 
+  if (!mounted) return null;
+
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white overflow-x-hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <nav
         className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 ${
           isScrolled ? "backdrop-blur-md shadow-lg" : "bg-transparent"
@@ -178,10 +242,48 @@ export default function StaticLandingPage() {
         /* Flip card styles */
         .flip { perspective: 1000px; position: relative; overflow: hidden; }
         .flip-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform .6s ease; }
-        .flip:hover .flip-inner { transform: rotateY(180deg); }
+        @media (hover: hover) and (pointer: fine) { .flip:hover .flip-inner { transform: rotateY(180deg); } }
         .flip-front, .flip-back { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 1rem; }
         .flip-back { transform: rotateY(180deg); }
       `}</style>
+
+      {legalOpen && (
+        <div className="fixed inset-0 z-[100]">
+          <div className="absolute inset-0 bg-black/40" onClick={()=>setLegalOpen(false)} />
+          <div className="absolute inset-x-0 bottom-0 sm:inset-0 sm:flex sm:items-center sm:justify-center">
+            <div className="w-full sm:w-[680px] max-h-[85vh] sm:max-h-[80vh] bg-white rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+              <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b">
+                <div className="text-lg font-semibold" style={{ color: settings.primaryColor }}>
+                  {legalType === 'privacy' ? 'Privacy Policy' : legalType === 'terms' ? 'Terms of Service' : 'Cookie Policy'}
+                </div>
+                <button onClick={()=>setLegalOpen(false)} className="px-3 py-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 text-sm">Close</button>
+              </div>
+              <div className="p-4 sm:p-6 overflow-y-auto text-sm leading-6 text-gray-700 space-y-4">
+                {legalType === 'privacy' && (
+                  <div className="space-y-3">
+                    <p>We collect only the information needed to provide veterinary services, such as account details, appointment information, and messages you send us.</p>
+                    <p>Your data is processed for booking, reminders, service improvements, and security. You can request access or deletion subject to legal requirements.</p>
+                    <p>We apply reasonable safeguards. For inquiries, contact {settings.contactEmail}.</p>
+                  </div>
+                )}
+                {legalType === 'terms' && (
+                  <div className="space-y-3">
+                    <p>By using ZamboVet, you agree to use the platform lawfully and to provide accurate information when booking appointments.</p>
+                    <p>Services are provided as‑is. Availability and outcomes are not guaranteed. To the extent permitted by law, liability is limited.</p>
+                    <p>Misuse of the platform may result in account restrictions. These terms may change with notice.</p>
+                  </div>
+                )}
+                {legalType === 'cookies' && (
+                  <div className="space-y-3">
+                    <p>We use essential cookies for authentication and session continuity, and optional analytics to understand usage trends.</p>
+                    <p>You can control cookies in your browser settings. Disabling some cookies may affect functionality.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <section id="home" className="pt-16 md:pt-20 min-h-screen flex items-center relative overflow-hidden">
         <div
@@ -262,34 +364,14 @@ export default function StaticLandingPage() {
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8 auto-rows-fr items-stretch">
-            {[
-              {
-                icon: CalendarDaysIcon,
-                title: "Online Booking",
-                description: "Schedule appointments 24/7 through our easy-to-use platform",
-                gradient: `linear-gradient(135deg, ${settings.primaryColor}, ${settings.primaryColor}DD)`,
-              },
-              {
-                icon: HeartIcon,
-                title: "Health Monitoring",
-                description: "Track your pet's health records and vaccination schedules",
-                gradient: `linear-gradient(135deg, white, ${settings.primaryColor})`,
-              },
-              {
-                icon: UserGroupIcon,
-                title: "Expert Veterinarians",
-                description: "Experienced professionals dedicated to your pet's wellbeing",
-                gradient: `linear-gradient(135deg, ${settings.secondaryColor}, ${settings.primaryColor})`,
-              },
-              {
-                icon: ShieldCheckIcon,
-                title: "Preventive Care",
-                description: "Preventive health services to keep your pets healthy and happy",
-                gradient: `linear-gradient(135deg, white, ${settings.secondaryColor})`,
-              },
-            ].map((service, idx) => (
+            {(services.length ? services : [
+              { id: 1, name: 'Online Booking', description: 'Schedule appointments 24/7 through our platform' },
+              { id: 2, name: 'Health Monitoring', description: "Track your pet's health records" },
+              { id: 3, name: 'Expert Veterinarians', description: 'Experienced professionals dedicated to your pet' },
+              { id: 4, name: 'Preventive Care', description: 'Keep your pets healthy and happy' },
+            ]).slice(0,4).map((service, idx) => (
               <div key={idx} className="group h-full">
-                <div className="flip h-[280px] md:h-[320px]">
+                <div className="flip h-auto md:h-[320px]">
                   <div className="flip-inner h-full">
                   {/* Front */}
                   <div
@@ -297,15 +379,20 @@ export default function StaticLandingPage() {
                     style={{ borderColor: settings.secondaryColor }}
                   >
                     <div
-                      className="w-14 h-14 md:w-16 md:h-16 rounded-xl flex items-center justify-center mb-6 transition-transform duration-300 group-hover:scale-110"
-                      style={{ background: service.gradient }}
-                    >
-                      <service.icon className="w-7 h-7 md:w-8 md:h-8 text-white" />
-                    </div>
+              className="w-14 h-14 md:w-16 md:h-16 rounded-xl flex items-center justify-center mb-6 transition-transform duration-300 group-hover:scale-110"
+              style={{ background: [
+                `linear-gradient(135deg, ${settings.primaryColor}, ${settings.primaryColor}DD)`,
+                `linear-gradient(135deg, white, ${settings.primaryColor})`,
+                `linear-gradient(135deg, ${settings.secondaryColor}, ${settings.primaryColor})`,
+                `linear-gradient(135deg, white, ${settings.secondaryColor})`
+              ][idx % 4] }}
+            >
+              {(() => { const Icon = [CalendarDaysIcon, HeartIcon, UserGroupIcon, ShieldCheckIcon][idx % 4] as any; return <Icon className="w-7 h-7 md:w-8 md:h-8 text-white" />; })()}
+            </div>
                     <h3 className="text-xl md:text-2xl font-bold mb-2" style={{ color: settings.primaryColor }}>
-                      {service.title}
+                      {service.name}
                     </h3>
-                    <p className="text-black/80 leading-relaxed line-clamp-3">{service.description}</p>
+                    <p className="text-black/80 leading-relaxed line-clamp-3">{service.description || ''}</p>
                   </div>
 
                   {/* Back */}
@@ -315,7 +402,7 @@ export default function StaticLandingPage() {
                   >
                     <div>
                       <h3 className="text-xl md:text-2xl font-bold mb-3" style={{ color: settings.primaryColor }}>
-                        {service.title}
+                        {service.name}
                       </h3>
                       <ul className="space-y-2 text-black/80">
                         <li className="flex items-center gap-2">
@@ -431,44 +518,27 @@ export default function StaticLandingPage() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-            {[
-              {
-                name: "Sarah Johnson",
-                pet: "Max (Golden Retriever)",
-                rating: 5,
-                text:
-                  "ZamboVet made booking appointments so easy! The online system is intuitive and the vets are incredibly caring. Max loves going there now!",
-              },
-              {
-                name: "Michael Chen",
-                pet: "Luna (Persian Cat)",
-                rating: 5,
-                text:
-                  "The professional veterinary care at ZamboVet was exceptional. Dr. Martinez provided excellent treatment for Luna. Highly recommended!",
-              },
-              {
-                name: "Emily Rodriguez",
-                pet: "Buddy (Beagle)",
-                rating: 5,
-                text:
-                  "Finally, a vet clinic that understands modern pet parents! The health tracking feature helps me stay on top of Buddy's vaccinations.",
-              },
-            ].map((t, index) => (
+            {(testimonials.length ? testimonials : [
+              { id:1, rating:5, title:'Great Service', comment:'Wonderful experience booking and visiting the clinic.' },
+              { id:2, rating:5, title:'Caring Vets', comment:'Very professional and caring staff.' },
+              { id:3, rating:5, title:'Highly Recommended', comment:'Easy to book and great care for our pet.' },
+            ]).map((t, index) => (
               <div
                 key={index}
                 className="bg-[#fffbde] rounded-2xl p-6 md:p-8 border border-[#91c8e4] hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1"
               >
                 <div className="flex items-center mb-4">
-                  {Array.from({ length: t.rating }).map((_, i) => (
+                  {Array.from({ length: t.rating || 0 }).map((_, i) => (
                     <svg key={i} className="w-5 h-5 text-yellow-400 fill-current" viewBox="0 0 20 20">
                       <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                     </svg>
                   ))}
                 </div>
-                <p className="text-black mb-6 leading-relaxed italic">&quot;{t.text}&quot;</p>
+                <p className="text-black mb-2 font-semibold" style={{ color: settings.primaryColor }}>{t.title || 'Review'}</p>
+                <p className="text-black mb-6 leading-relaxed italic">&quot;{t.comment || ''}&quot;</p>
                 <div className="border-t border-[#91c8e4] pt-4">
-                  <div className="font-semibold text-[#0032A0]">{t.name}</div>
-                  <div className="text-sm text-black">Pet Parent of {t.pet}</div>
+                  <div className="font-semibold text-[#0032A0]">Verified Owner</div>
+                  <div className="text-sm text-black">Reviewed via appointment</div>
                 </div>
               </div>
             ))}
@@ -517,27 +587,21 @@ export default function StaticLandingPage() {
             <p className="text-lg md:text-xl text-black max-w-3xl mx-auto">{settings.contactSubtitle}</p>
           </div>
 
-          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16">
+          <div className="grid grid-cols-1 gap-12 lg:gap-16">
             <div className="space-y-8">
               <div className="space-y-6">
                 {[
                   {
                     icon: PhoneIcon,
                     title: "Phone",
-                    info: settings.contactPhone,
+                    info: contact.phone || settings.contactPhone,
                     subInfo: "Available 24/7 for emergencies",
                   },
                   {
                     icon: EnvelopeIcon,
                     title: "Email",
-                    info: settings.contactEmail,
+                    info: contact.email || settings.contactEmail,
                     subInfo: "We'll respond within 24 hours",
-                  },
-                  {
-                    icon: MapPinIcon,
-                    title: "Location",
-                    info: settings.contactAddress.split(",")[0] || "Lorem Ipsum",
-                    subInfo: settings.contactAddress.split(",")[1] || "Zamboanga City",
                   },
                 ].map((c, i) => (
                   <div key={i} className="flex items-start space-x-4">
@@ -585,59 +649,7 @@ export default function StaticLandingPage() {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl p-6 md:p-8 shadow-lg">
-              <h3 className="text-2xl font-bold text-[#0032A0] mb-6">Send us a message</h3>
-              <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-[#0053d6] mb-2">Your Name</label>
-                    <input
-                      type="text"
-                      className="w-full px-4 py-3 border border-[#b3d6ec] rounded-lg focus:ring-2 focus:ring-[#749bc2] focus:border-transparent transition-all duration-200"
-                      placeholder="John Doe"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-[#0053d6] mb-2">Pet&apos;s Name</label>
-                    <input
-                      type="text"
-                      className="w-full px-4 py-3 border border-[#b3d6ec] rounded-lg focus:ring-2 focus:ring-[#749bc2] focus:border-transparent transition-all duration-200"
-                      placeholder="Buddy"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#0053d6] mb-2">Email Address</label>
-                  <input
-                    type="email"
-                    className="w-full px-4 py-3 border border-[#b3d6ec] rounded-lg focus:ring-2 focus:ring-[#749bc2] focus:border-transparent transition-all duration-200"
-                    placeholder="john@example.com"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#0053d6] mb-2">Phone Number</label>
-                  <input
-                    type="tel"
-                    className="w-full px-4 py-3 border border-[#b3d6ec] rounded-lg focus:ring-2 focus:ring-[#749bc2] focus:border-transparent transition-all duration-200"
-                    placeholder="+1 (555) 123-4567"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#0053d6] mb-2">Message</label>
-                  <textarea
-                    rows={4}
-                    className="w-full px-4 py-3 border border-[#b3d6ec] rounded-lg focus:ring-2 focus:ring-[#749bc2] focus:border-transparent transition-all duration-200 resize-none"
-                    placeholder="Tell us about your pet&apos;s needs..."
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="w-full bg-gradient-to-r from-[#749bc2] to-[#22223b] text-white px-8 py-4 rounded-lg hover:shadow-lg transform hover:scale-105 transition-all duration-200 font-semibold"
-                >
-                  Send Message
-                </button>
-              </form>
-            </div>
+            
           </div>
         </div>
       </section>
@@ -703,15 +715,9 @@ export default function StaticLandingPage() {
                 © 2025 {settings.companyName}. All rights reserved.
               </div>
               <div className="flex space-x-6 text-sm">
-                {[
-                  "Privacy Policy",
-                  "Terms of Service",
-                  "Cookie Policy",
-                ].map((p) => (
-                  <a key={p} href="#" className="text-[#91c8e4] hover:text-[#fffbde] transition-colors duration-200">
-                    {p}
-                  </a>
-                ))}
+                <button onClick={()=>{ setLegalType('privacy'); setLegalOpen(true); }} className="text-[#91c8e4] hover:text-[#fffbde] transition-colors duration-200">Privacy Policy</button>
+                <button onClick={()=>{ setLegalType('terms'); setLegalOpen(true); }} className="text-[#91c8e4] hover:text-[#fffbde] transition-colors duration-200">Terms of Service</button>
+                <button onClick={()=>{ setLegalType('cookies'); setLegalOpen(true); }} className="text-[#91c8e4] hover:text-[#fffbde] transition-colors duration-200">Cookie Policy</button>
               </div>
             </div>
           </div>

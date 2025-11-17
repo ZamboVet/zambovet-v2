@@ -86,12 +86,21 @@ export default function UsersAnalyticsPage({ showHeaderControls = true }: { show
         // Derive a simple visits series ~3x signups with smoothing
         const visits = total.map((t,i)=> Math.max(0, Math.round(t * 3 + (Math.sin(i * 0.6)+1) * 2)));
         setSeries({ owner, vet, admin, total, visits });
+        // KPI cards should reflect GLOBAL totals (no date filter)
+        const [allTotal, allOwners, allVets, allAdmins] = await Promise.all([
+          supabase.from('profiles').select('id', { count: 'exact', head: true }),
+          supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('user_role','pet_owner'),
+          supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('user_role','veterinarian'),
+          supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('user_role','admin'),
+        ]);
         const sum = (a:number[]) => a.reduce((s,v)=>s+v,0);
         setTotals({
-          total: sum(total),
-          owners: sum(owner),
-          vets: sum(vet),
-          admins: sum(admin),
+          // true totals from head counts
+          total: allTotal.count ?? 0,
+          owners: allOwners.count ?? 0,
+          vets: allVets.count ?? 0,
+          admins: allAdmins.count ?? 0,
+          // visits remains derived from series
           visits: sum(visits),
           delta: Math.round(((total.at(-1) ?? 0) - (total.at(-2) ?? 0)) * 100) / 100,
         });

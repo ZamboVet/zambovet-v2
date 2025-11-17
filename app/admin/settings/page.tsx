@@ -29,14 +29,14 @@ export default function AdminSettingsPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Site Settings</h1>
           <p className="text-sm text-gray-500">Customize navbar colors and landing page content</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={onReset} className="px-4 py-2 rounded-full bg-gray-100 text-gray-800 hover:bg-gray-200">Reset</button>
-          <button onClick={onSave} className="px-4 py-2 rounded-full bg-blue-600 text-white hover:bg-blue-700">Save</button>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+          <button onClick={onReset} className="px-4 py-2 rounded-full bg-gray-100 text-gray-800 hover:bg-gray-200 w-full sm:w-auto">Reset</button>
+          <button onClick={onSave} className="px-4 py-2 rounded-full bg-blue-600 text-white hover:bg-blue-700 w-full sm:w-auto">Save</button>
         </div>
       </div>
 

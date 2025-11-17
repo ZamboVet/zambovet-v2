@@ -68,6 +68,12 @@ export function Sidebar() {
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, [isMobile, drawerOpen]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = () => { if (isMobile) setDrawerOpen(true); };
+    window.addEventListener("po_sidebar_open", handler as EventListener);
+    return () => window.removeEventListener("po_sidebar_open", handler as EventListener);
+  }, [isMobile]);
 
   useEffect(() => {
     const s = localStorage.getItem("po_sidebar_collapsed");
@@ -254,13 +260,29 @@ export function Sidebar() {
             });
             if (!res.isConfirmed) return;
             try {
-              await supabase.auth.signOut();
+              await supabase.auth.signOut({ scope: "global" as any });
               try {
+                const removeAuthKeys = () => {
+                  try {
+                    const keys: string[] = [];
+                    for (let i = 0; i < localStorage.length; i++) {
+                      const k = localStorage.key(i);
+                      if (!k) continue;
+                      if (k.startsWith("sb-") || k.startsWith("supabase")) keys.push(k);
+                    }
+                    keys.forEach(k => localStorage.removeItem(k));
+                  } catch {}
+                };
+                // Clear app-specific keys
                 localStorage.removeItem("ownerNotif");
                 localStorage.removeItem("po_sidebar_collapsed");
+                localStorage.removeItem("po_avatar_url");
+                localStorage.removeItem("vet_sidebar_collapsed");
+                removeAuthKeys();
+                try { sessionStorage.clear(); } catch {}
               } catch {}
               await Swal.fire({ icon: "success", title: "Signed out", confirmButtonColor: "#2563eb" });
-              router.replace("/login");
+              window.location.href = "/login";
             } catch (e: any) {
               await Swal.fire({ icon: "error", title: "Logout failed", text: e?.message || "Please try again.", confirmButtonColor: "#2563eb" });
             }
