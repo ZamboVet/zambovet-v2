@@ -8,9 +8,12 @@ type Props = {
   email: string | null;
   verification: string | null;
   primary: string;
+  category?: string | null;
+  classificationLevel?: string | null;
+  licenseType?: string | null;
 };
 
-export default function ProfileCard({ name, specialization, email, verification, primary }: Props) {
+export default function ProfileCard({ name, specialization, email, verification, primary, category, classificationLevel, licenseType }: Props) {
   return (
     <div className="rounded-2xl bg-white p-5 shadow ring-1 ring-black/5">
       <div className="flex items-center justify-between mb-3">
@@ -22,6 +25,15 @@ export default function ProfileCard({ name, specialization, email, verification,
         <div className="rounded-xl p-3 bg-gray-50"><span className="text-gray-500">Specialization</span><div className="font-medium" style={{ color: primary }}>{specialization || "General"}</div></div>
         <div className="rounded-xl p-3 bg-gray-50"><span className="text-gray-500">Email</span><div className="font-medium" style={{ color: primary }}>{email || "-"}</div></div>
         <div className="rounded-xl p-3 bg-gray-50"><span className="text-gray-500">Verification</span><div className="font-medium" style={{ color: primary }}>{verification || "pending"}</div></div>
+        {category ? (
+          <div className="rounded-xl p-3 bg-gray-50"><span className="text-gray-500">Category</span><div className="font-medium" style={{ color: primary }}>{category}</div></div>
+        ) : null}
+        {classificationLevel ? (
+          <div className="rounded-xl p-3 bg-gray-50"><span className="text-gray-500">Classification Level</span><div className="font-medium" style={{ color: primary }}>{classificationLevel}</div></div>
+        ) : null}
+        {licenseType ? (
+          <div className="rounded-xl p-3 bg-gray-50"><span className="text-gray-500">License Type</span><div className="font-medium" style={{ color: primary }}>{licenseType}</div></div>
+        ) : null}
       </div>
     </div>
   );

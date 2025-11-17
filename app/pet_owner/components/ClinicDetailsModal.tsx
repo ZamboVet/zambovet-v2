@@ -14,6 +14,14 @@ type Clinic = { id: number; name: string; address: string | null; phone: string 
 
 type Vet = { id: number; full_name: string };
 
+type VetClass = {
+  vet_id: number;
+  category: string | null;
+  specialization: string | null;
+  classification_level: string | null;
+  license_type: string | null;
+};
+
 export default function ClinicDetailsModal({ open, clinicId, onClose }: ClinicDetailsModalProps) {
   const modalRef = useRef<HTMLDivElement | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -24,6 +32,7 @@ export default function ClinicDetailsModal({ open, clinicId, onClose }: ClinicDe
   const [clinic, setClinic] = useState<Clinic | null>(null);
   const [vets, setVets] = useState<Vet[]>([]);
   const [geoLoading, setGeoLoading] = useState(false);
+  const [vetClassById, setVetClassById] = useState<Record<number, VetClass | null>>({});
 
   useEffect(() => {
     const load = async () => {
@@ -56,8 +65,28 @@ export default function ClinicDetailsModal({ open, clinicId, onClose }: ClinicDe
         if (vetIds.length) {
           const { data: vRows } = await supabase.from("veterinarians").select("id,full_name").in("id", vetIds);
           setVets((vRows || []) as any);
+          try {
+            const { data: classes } = await supabase
+              .from('veterinarian_classifications')
+              .select('vet_id,category,specialization,classification_level,license_type')
+              .in('vet_id', vetIds);
+            const map: Record<number, VetClass | null> = {};
+            (classes || []).forEach((row: any) => {
+              map[row.vet_id as number] = {
+                vet_id: row.vet_id,
+                category: row.category ?? null,
+                specialization: row.specialization ?? null,
+                classification_level: row.classification_level ?? null,
+                license_type: row.license_type ?? null,
+              } as VetClass;
+            });
+            // Ensure all vets have a key for fallback display
+            vetIds.forEach((id:number) => { if (!(id in map)) map[id] = null; });
+            setVetClassById(map);
+          } catch {}
         } else {
           setVets([]);
+          setVetClassById({});
         }
       } finally {
         setLoadingRoster(false);
@@ -263,12 +292,32 @@ export default function ClinicDetailsModal({ open, clinicId, onClose }: ClinicDe
                 <div className="text-sm text-neutral-500">No upcoming veterinarians found.</div>
               ) : (
                 <ul className="grid sm:grid-cols-2 gap-2">
-                  {vets.map(v => (
-                    <li key={v.id} className="rounded-xl bg-neutral-50 p-3 flex items-center gap-2">
-                      <UserIcon className="w-4 h-4 text-neutral-600" />
-                      <div className="font-medium text-neutral-800">{v.full_name}</div>
-                    </li>
-                  ))}
+                  {vets.map(v => {
+                    const cls = vetClassById[v.id] || null;
+                    return (
+                      <li key={v.id} className="rounded-xl bg-neutral-50 p-3">
+                        <div className="flex items-center gap-2">
+                          <UserIcon className="w-4 h-4 text-neutral-600" />
+                          <div className="font-medium text-neutral-800 truncate" title={v.full_name}>{v.full_name}</div>
+                        </div>
+                        <div className="mt-1.5 text-[11px] text-neutral-600 space-y-0.5">
+                          {cls ? (
+                            <>
+                              {cls.category ? <div><span className="text-neutral-500">Category:</span> <span className="font-medium text-neutral-800">{cls.category}</span></div> : null}
+                              {cls.specialization ? <div><span className="text-neutral-500">Specialization:</span> <span className="font-medium text-neutral-800">{cls.specialization}</span></div> : null}
+                              {cls.classification_level ? <div><span className="text-neutral-500">Level:</span> <span className="font-medium text-neutral-800">{cls.classification_level}</span></div> : null}
+                              {cls.license_type ? <div><span className="text-neutral-500">License:</span> <span className="font-medium text-neutral-800">{cls.license_type}</span></div> : null}
+                              {!cls.category && !cls.specialization && !cls.classification_level && !cls.license_type ? (
+                                <div className="text-neutral-500">No classification provided</div>
+                              ) : null}
+                            </>
+                          ) : (
+                            <div className="text-neutral-500">No classification provided</div>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>

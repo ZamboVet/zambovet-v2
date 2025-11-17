@@ -29,6 +29,11 @@ export default function VetSettingsPage() {
   const [proUrl, setProUrl] = useState<string | null>(null);
   const [bizUrl, setBizUrl] = useState<string | null>(null);
   const [govUrl, setGovUrl] = useState<string | null>(null);
+  // Vet classification state
+  const [vetCategory, setVetCategory] = useState("");
+  const [vetSpecialization, setVetSpecialization] = useState("");
+  const [classificationLevel, setClassificationLevel] = useState("");
+  const [licenseType, setLicenseType] = useState("");
 
   useEffect(() => {
     const init = async () => {
@@ -127,6 +132,23 @@ export default function VetSettingsPage() {
         setName((v as any)?.full_name || p.full_name || "");
         setPhone(p.phone || "");
         setAvailable(!!(v as any)?.is_available);
+        // Load vet classification if exists
+        try {
+          if (v?.id) {
+            const { data: vc } = await supabase
+              .from('veterinarian_classifications')
+              .select('category,specialization,classification_level,license_type')
+              .eq('vet_id', v.id)
+              .maybeSingle();
+            
+            if (vc) {
+              setVetCategory((vc as any).category || "");
+              setVetSpecialization((vc as any).specialization || "");
+              setClassificationLevel((vc as any).classification_level || "");
+              setLicenseType((vc as any).license_type || "");
+            }
+          }
+        } catch {}
         // Load latest vet application for docs preview
         try {
           // Get the 5 most recent applications for this email
@@ -198,6 +220,34 @@ export default function VetSettingsPage() {
       await Swal.fire({ icon: "success", title: "Saved" });
     } catch (err: any) {
       await Swal.fire({ icon: "error", title: "Save failed", text: err?.message || "Please try again." });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveClassification = async () => {
+    if (!profile || !vet) return;
+    if (!vetCategory.trim() || !classificationLevel.trim() || !licenseType.trim()) {
+      await Swal.fire({ icon: 'warning', title: 'Missing required fields', text: 'Please fill Category, Classification Level, and License Type.' });
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        vet_id: vet.id,
+        category: vetCategory.trim(),
+        specialization: vetSpecialization.trim() || null,
+        classification_level: classificationLevel.trim(),
+        license_type: licenseType.trim(),
+        updated_at: new Date().toISOString(),
+      } as any;
+      const { error } = await supabase
+        .from('veterinarian_classifications')
+        .upsert(payload, { onConflict: 'vet_id' });
+      if (error) throw error;
+      await Swal.fire({ icon: 'success', title: 'Classification saved' });
+    } catch (err:any) {
+      await Swal.fire({ icon: 'error', title: 'Save failed', text: err?.message || 'Please try again.' });
     } finally {
       setSaving(false);
     }
@@ -291,6 +341,31 @@ export default function VetSettingsPage() {
                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-400" />
               <label htmlFor="availability" className="text-sm">Available for appointments</label>
             </div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl bg-white/80 backdrop-blur-sm p-5 shadow ring-1 ring-black/5">
+          <div className="text-lg font-semibold mb-4" style={{ color: PRIMARY }}>Professional Profile — Vet Classification</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Vet Category<span className="text-red-500">*</span></label>
+              <input value={vetCategory} onChange={(e)=>setVetCategory(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-white/90 ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 focus:outline-none" placeholder="e.g., Small Animal, Large Animal" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Specialization</label>
+              <input value={vetSpecialization} onChange={(e)=>setVetSpecialization(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-white/90 ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 focus:outline-none" placeholder="e.g., Surgery, Dermatology" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Classification Level<span className="text-red-500">*</span></label>
+              <input value={classificationLevel} onChange={(e)=>setClassificationLevel(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-white/90 ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 focus:outline-none" placeholder="e.g., Junior, Senior, Consultant" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">License Type<span className="text-red-500">*</span></label>
+              <input value={licenseType} onChange={(e)=>setLicenseType(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-white/90 ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 focus:outline-none" placeholder="e.g., PRC, Provisional" />
+            </div>
+          </div>
+          <div className="mt-4">
+            <button onClick={saveClassification} disabled={saving} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2">Save Classification</button>
           </div>
         </div>
 
