@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'ZamboVet',
   webDir: 'public',
   server: {
-    url: 'http://192.168.254.172:3000',
+    url: 'https://zambovet-v2.vercel.app/',
     cleartext: true,
   },
 };
