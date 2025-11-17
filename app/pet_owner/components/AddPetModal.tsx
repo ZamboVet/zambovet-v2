@@ -281,7 +281,7 @@ export default function AddPetModal({ ownerId, open, onClose, onCreated }: AddPe
                   }}
                   className="w-full rounded-lg sm:rounded-xl border border-neutral-200 px-2.5 sm:px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500"
                 >
-                  <option value="">Select species</option>
+                  <option value="" disabled>Select species</option>
                   {speciesOptions.map((s) => (
                     <option key={s} value={s}>{s}</option>
                   ))}
@@ -376,7 +376,7 @@ export default function AddPetModal({ ownerId, open, onClose, onCreated }: AddPe
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-neutral-700 mb-1.5">Gender</label>
                 <select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full rounded-lg sm:rounded-xl border border-neutral-200 px-2.5 sm:px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500">
-                  <option value="">Select gender</option>
+                  <option value="" disabled>Select gender</option>
                   {genderOptions.map((g) => (
                     <option key={g} value={g}>{g[0].toUpperCase() + g.slice(1)}</option>
                   ))}
