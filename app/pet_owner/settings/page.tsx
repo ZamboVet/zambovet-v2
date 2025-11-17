@@ -5,6 +5,9 @@ import Swal from "sweetalert2";
 import { supabase } from "../../../lib/supabaseClient";
 import { swalConfirmColor } from "../../../lib/ui/tokens";
 import { CheckCircleIcon, IdentificationIcon, BellAlertIcon, ShieldCheckIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
+import { getSiteUrl } from "../../../lib/utils/site";
+
+const SITE_URL = getSiteUrl();
 
 export default function OwnerSettingsPage() {
   const [loading, setLoading] = useState(true);
@@ -138,17 +141,71 @@ export default function OwnerSettingsPage() {
   };
 
   const changePassword = async () => {
-    const res = await Swal.fire({
-      title: "Change Password",
+    const resOld = await Swal.fire({
+      title: "Verify Current Password",
       input: "password",
-      inputLabel: "New password",
-      inputAttributes: { autocapitalize: "off", autocomplete: "new-password" },
+      inputLabel: "Current password",
+      inputAttributes: { autocapitalize: "off", autocomplete: "current-password" },
       showCancelButton: true,
       confirmButtonColor: swalConfirmColor,
     });
-    if (!res.isConfirmed || !res.value) return;
+    if (!resOld.isConfirmed || !resOld.value) return;
     try {
-      const { error } = await supabase.auth.updateUser({ password: res.value });
+      const { data: auth } = await supabase.auth.getUser();
+      const email = auth.user?.email || "";
+      if (!email) {
+        await Swal.fire({ icon: "error", title: "Not signed in", confirmButtonColor: swalConfirmColor });
+        return;
+      }
+      const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password: String(resOld.value) });
+      if (signInErr) {
+        const resp = await Swal.fire({
+          icon: "error",
+          title: "Incorrect current password",
+          text: "If you signed in with Google or forgot your password, you can send a reset link to your email.",
+          showCancelButton: true,
+          confirmButtonText: "Send reset link",
+          cancelButtonText: "Cancel",
+          confirmButtonColor: swalConfirmColor,
+        });
+        if (resp.isConfirmed) {
+          try {
+            const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${SITE_URL}/reset-password` });
+            if (resetErr) throw resetErr;
+            await Swal.fire({ icon: 'success', title: 'Reset link sent', text: 'Please check your email.', confirmButtonColor: swalConfirmColor });
+          } catch (e:any) {
+            await Swal.fire({ icon: 'error', title: 'Failed to send link', text: e?.message || 'Please try again.', confirmButtonColor: swalConfirmColor });
+          }
+        }
+        return;
+      }
+      const resNew = await Swal.fire({
+        title: "Change Password",
+        html: '<input type="password" id="np1" class="swal2-input" placeholder="New password" autocomplete="new-password" />' +
+              '<input type="password" id="np2" class="swal2-input" placeholder="Confirm new password" autocomplete="new-password" />',
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: "Update",
+        confirmButtonColor: swalConfirmColor,
+        preConfirm: () => {
+          const p1 = (document.getElementById('np1') as HTMLInputElement)?.value || '';
+          const p2 = (document.getElementById('np2') as HTMLInputElement)?.value || '';
+          if (!p1 || p1.length < 8) {
+            // @ts-ignore
+            Swal.showValidationMessage('Password must be at least 8 characters');
+            return;
+          }
+          if (p1 !== p2) {
+            // @ts-ignore
+            Swal.showValidationMessage('Passwords do not match');
+            return;
+          }
+          return p1;
+        },
+      });
+      if (!resNew.isConfirmed || !resNew.value) return;
+      const newPwd = String(resNew.value);
+      const { error } = await supabase.auth.updateUser({ password: newPwd });
       if (error) throw error;
       await Swal.fire({ icon: "success", title: "Password updated", confirmButtonColor: swalConfirmColor });
     } catch (e: any) {

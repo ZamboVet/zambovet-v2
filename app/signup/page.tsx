@@ -7,9 +7,11 @@ import Swal from "sweetalert2";
 import { supabase } from "../../lib/supabaseClient";
 import { ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 import TermsAndConditionsModal from "../components/TermsAndConditionsModal";
+import { getSiteUrl } from "../../lib/utils/site";
 
 const PRIMARY = "#0032A0";
 const SECONDARY = "#b3c7e6";
+const SITE_URL = getSiteUrl();
 
 export default function SignupPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -93,7 +95,7 @@ export default function SignupPage() {
       email,
       options: {
         shouldCreateUser: true,
-        emailRedirectTo: 'https://zambovet-v2.vercel.app',
+        emailRedirectTo: SITE_URL,
       },
     });
     if (error) {
@@ -127,15 +129,28 @@ export default function SignupPage() {
         Swal.fire({ icon: "warning", title: "Terms Required", text: "Please accept the Terms & Conditions to proceed." });
         return;
       }
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('id')
-        .ilike('email', email.trim())
-        .maybeSingle();
-      if (existingProfile) {
-        await Swal.fire({ icon: 'error', title: 'Email already in use', text: 'Please sign in to your existing account.' });
-        return;
-      }
+      // Check if auth user already exists (server-side) and fallback to profiles check
+      try {
+        const resp = await fetch(`/api/auth-email-exists?email=${encodeURIComponent(email.trim())}`);
+        if (resp.ok) {
+          const json = await resp.json();
+          if (json?.exists) {
+            await Swal.fire({ icon: 'error', title: 'Email already in use', text: 'Please sign in to your existing account.' });
+            return;
+          }
+        }
+      } catch {}
+      try {
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('id')
+          .ilike('email', email.trim())
+          .maybeSingle();
+        if (existingProfile) {
+          await Swal.fire({ icon: 'error', title: 'Email already in use', text: 'Please sign in to your existing account.' });
+          return;
+        }
+      } catch {}
       setTermsError(null);
       setStep(2);
       return;
@@ -205,7 +220,7 @@ export default function SignupPage() {
             setLoading(true);
             const { error } = await supabase.auth.signInWithOtp({
               email,
-              options: { shouldCreateUser: true, emailRedirectTo: 'https://zambovet-v2.vercel.app' },
+              options: { shouldCreateUser: true, emailRedirectTo: SITE_URL },
             });
             if (error) {
               if ((error as any).status === 429) {
@@ -404,7 +419,7 @@ export default function SignupPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: 'https://zambovet-v2.vercel.app/login',
+          redirectTo: `${SITE_URL}/login`,
           queryParams: { prompt: 'select_account' },
         },
       });
