@@ -400,3 +400,15 @@ CREATE TABLE public.veterinarians (
   CONSTRAINT veterinarians_clinic_id_fkey FOREIGN KEY (clinic_id) REFERENCES public.clinics(id),
   CONSTRAINT veterinarians_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
 );
+CREATE TABLE public.veterinarian_classifications (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  vet_id bigint NOT NULL UNIQUE,
+  category text NOT NULL,
+  specialization text,
+  classification_level text NOT NULL,
+  license_type text NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT veterinarian_classifications_pkey PRIMARY KEY (id),
+  CONSTRAINT veterinarian_classifications_vet_id_fkey FOREIGN KEY (vet_id) REFERENCES public.veterinarians(id)
+);

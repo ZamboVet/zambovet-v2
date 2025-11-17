@@ -62,6 +62,7 @@ export default function VetDashboardPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [range, setRange] = useState("30d");
   const [mounted, setMounted] = useState(false);
+  const [vetClass, setVetClass] = useState<{ category: string | null; classification_level: string | null; license_type: string | null } | null>(null);
 
   const today = new Date();
   const todayISO = today.toISOString().slice(0, 10);
@@ -92,6 +93,15 @@ export default function VetDashboardPage() {
           average_rating: vetObj.average_rating ?? 0
         } as Vet;
         setVet(vetRow);
+        // Load vet classification
+        try {
+          const { data: vc } = await supabase
+            .from('veterinarian_classifications')
+            .select('category,classification_level,license_type')
+            .eq('vet_id', vetRow.id)
+            .maybeSingle();
+          setVetClass((vc as any) || null);
+        } catch {}
         // If this is the first approved veterinarian, require clinic location setup before proceeding
         try {
           const { count: approvedCount } = await supabase
@@ -208,6 +218,9 @@ export default function VetDashboardPage() {
             email={profile?.email || null}
             verification={profile?.verification_status || "pending"}
             primary={PRIMARY}
+            category={vetClass?.category || null}
+            classificationLevel={vetClass?.classification_level || null}
+            licenseType={vetClass?.license_type || null}
           />
         </div>
 

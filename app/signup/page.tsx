@@ -93,7 +93,7 @@ export default function SignupPage() {
       email,
       options: {
         shouldCreateUser: true,
-        emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+        emailRedirectTo: 'https://zambovet-v2.vercel.app',
       },
     });
     if (error) {
@@ -125,6 +125,15 @@ export default function SignupPage() {
       if (!termsAccepted) {
         setTermsError("You must accept the Terms & Conditions to continue.");
         Swal.fire({ icon: "warning", title: "Terms Required", text: "Please accept the Terms & Conditions to proceed." });
+        return;
+      }
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .ilike('email', email.trim())
+        .maybeSingle();
+      if (existingProfile) {
+        await Swal.fire({ icon: 'error', title: 'Email already in use', text: 'Please sign in to your existing account.' });
         return;
       }
       setTermsError(null);
@@ -196,7 +205,7 @@ export default function SignupPage() {
             setLoading(true);
             const { error } = await supabase.auth.signInWithOtp({
               email,
-              options: { shouldCreateUser: true, emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined },
+              options: { shouldCreateUser: true, emailRedirectTo: 'https://zambovet-v2.vercel.app' },
             });
             if (error) {
               if ((error as any).status === 429) {
@@ -395,7 +404,7 @@ export default function SignupPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/login` : undefined,
+          redirectTo: 'https://zambovet-v2.vercel.app/login',
           queryParams: { prompt: 'select_account' },
         },
       });

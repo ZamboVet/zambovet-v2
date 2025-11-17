@@ -79,7 +79,7 @@ export default function ForgotPasswordModal({ open, onClose }: ForgotPasswordMod
     try {
       setLoading(true);
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `https://zambovet-v2.vercel.app/reset-password`,
       });
 
       if (resetError) {

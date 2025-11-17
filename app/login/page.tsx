@@ -286,7 +286,7 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/login` : undefined,
+          redirectTo: 'https://zambovet-v2.vercel.app/login',
           queryParams: { prompt: 'select_account' },
         },
       });
