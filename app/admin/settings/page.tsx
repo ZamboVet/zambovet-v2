@@ -1,30 +1,96 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DEFAULT_SETTINGS, loadSettings, saveSettings, resetSettings, type SiteSettings } from "../../lib/settings";
+import Swal from 'sweetalert2';
+import { supabase } from "../../../lib/supabaseClient";
+import { DEFAULT_SETTINGS, loadSettings, saveSettings, resetSettings, type SiteSettings } from "../../../lib/settings";
 
 export default function AdminSettingsPage() {
   const [form, setForm] = useState<SiteSettings>(DEFAULT_SETTINGS);
   const [saved, setSaved] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    setForm(loadSettings());
+    (async () => {
+      try {
+        setLoading(true);
+        const settings = await loadSettings();
+        setForm(settings);
+      } catch (err) {
+        console.error('Error loading settings:', err);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   const onChange = <K extends keyof SiteSettings>(key: K, value: SiteSettings[K]) =>
     setForm((f: SiteSettings) => ({ ...f, [key]: value }));
 
-  const onSave = () => {
-    saveSettings(form);
-    setSaved("Saved");
-    setTimeout(() => setSaved(null), 2000);
+  const onSave = async () => {
+    setLoading(true);
+    try {
+      const success = await saveSettings(form);
+      if (success) {
+        await Swal.fire({
+          icon: 'success',
+          title: 'Saved',
+          text: 'Landing page settings saved successfully',
+          timer: 2000,
+          showConfirmButton: false
+        });
+      } else {
+        await Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Failed to save settings'
+        });
+      }
+    } catch (err) {
+      await Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'An error occurred while saving'
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const onReset = () => {
-    resetSettings();
-    setForm(DEFAULT_SETTINGS);
-    setSaved("Reset to defaults");
-    setTimeout(() => setSaved(null), 2000);
+  const onReset = async () => {
+    const res = await Swal.fire({
+      icon: 'warning',
+      title: 'Reset to defaults?',
+      text: 'This will restore all settings to their default values',
+      showCancelButton: true,
+      confirmButtonText: 'Reset',
+      confirmButtonColor: '#dc2626'
+    });
+
+    if (res.isConfirmed) {
+      setLoading(true);
+      try {
+        const success = await resetSettings();
+        if (success) {
+          setForm(DEFAULT_SETTINGS);
+          await Swal.fire({
+            icon: 'success',
+            title: 'Reset',
+            text: 'Settings reset to defaults',
+            timer: 2000,
+            showConfirmButton: false
+          });
+        }
+      } catch (err) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Failed to reset settings'
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
   };
 
   return (
@@ -95,8 +161,10 @@ export default function AdminSettingsPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl bg-white shadow-sm ring-1 ring-black/5 p-4">
-        <div className="text-sm text-gray-500">Changes are saved to your browser. Publishing to production would require a backend or CMS.</div>
+      <div className="rounded-2xl bg-blue-50 border border-blue-200 p-4">
+        <div className="text-sm text-blue-700">
+          <strong>Note:</strong> All changes are saved to the database and will be reflected on the landing page immediately.
+        </div>
       </div>
     </div>
   );

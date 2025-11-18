@@ -297,7 +297,7 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${SITE_URL}/login`,
+          redirectTo: `${window.location.origin}/login`,
           queryParams: { prompt: 'select_account' },
         },
       });

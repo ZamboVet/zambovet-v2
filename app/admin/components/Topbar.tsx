@@ -126,7 +126,6 @@ export default function AdminTopbar() {
           </button>
           {open && (
             <div className="absolute right-0 mt-2 w-44 rounded-xl bg-white shadow-xl ring-1 ring-black/5 py-2 text-sm z-50">
-              <Link href="/admin/settings" className="block px-3 py-2 hover:bg-gray-50">Profile</Link>
               <button onClick={doLogout} className="block w-full text-left px-3 py-2 hover:bg-gray-50">Sign out</button>
             </div>
           )}
@@ -135,4 +134,3 @@ export default function AdminTopbar() {
     </header>
   );
 }
-
