@@ -46,7 +46,8 @@ export default function SignupPage() {
     const handleGoogleSignupRedirect = async () => {
       try {
         const params = new URLSearchParams(window.location.search);
-        const mode = params.get('mode');
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const mode = params.get('mode') || hashParams.get('mode');
         
         if (mode === 'google') {
           // Wait for Supabase to process OAuth redirect
