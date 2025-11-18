@@ -129,9 +129,9 @@ export default function AdminSidebar({ items, pathname, open, onClose }: { items
                   <Icon className="w-5 h-5" />
                 </div>
                 {!collapsed && (
-                  <div className="leading-tight">
-                    <div className="text-[15px] font-semibold">{it.label}</div>
-                    <div className="text-[12px] text-white/70">{it.desc ?? ""}</div>
+                  <div className="leading-tight min-w-0">
+                    <div className="text-[15px] font-semibold truncate">{it.label}</div>
+                    <div className="text-[12px] text-white/70 truncate">{it.desc ?? ""}</div>
                   </div>
                 )}
               </Link>
@@ -140,23 +140,18 @@ export default function AdminSidebar({ items, pathname, open, onClose }: { items
         </div>
       </nav>
       <div className="p-3 mt-auto relative" ref={userRef}>
-        <button onClick={(e)=>{ e.stopPropagation(); setUserOpen(v=>!v); }} className={`w-full text-left flex items-center gap-3 p-3 rounded-2xl bg-white/10 backdrop-blur ring-1 ring-white/20 hover:bg-white/15 transition ${collapsed ? "justify-center" : ""}`}>
-          <div className="relative">
+        <button onClick={(e)=>{ e.stopPropagation(); setUserOpen(v=>!v); }} className={`w-full text-left flex items-center gap-3 p-3 rounded-2xl bg-white/10 backdrop-blur ring-1 ring-white/20 hover:bg-white/15 transition overflow-hidden ${collapsed ? "justify-center" : ""}`}>
+          <div className="flex-shrink-0 relative">
             <div className="w-9 h-9 rounded-full bg-white/70" />
             <span className="absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 bg-green-400 rounded-full ring-2 ring-blue-700" />
           </div>
           {!collapsed && (
-            <div className="leading-tight">
-              <div className="text-sm font-semibold">{adminName}</div>
-              <div className="text-xs text-white/70">{adminRole}</div>
+            <div className="leading-tight min-w-0">
+              <div className="text-sm font-semibold truncate">{adminName}</div>
+              <div className="text-xs text-white/70 truncate">{adminRole}</div>
             </div>
           )}
         </button>
-        {userOpen && (
-          <div className="absolute left-3 right-3 bottom-16 rounded-xl bg-white text-gray-800 shadow-xl ring-1 ring-black/10 py-2 text-sm z-50">
-            <Link href="/admin/settings" onClick={()=>setUserOpen(false)} className="block px-3 py-2 hover:bg-gray-50">Profile</Link>
-          </div>
-        )}
       </div>
     </aside>
   );
