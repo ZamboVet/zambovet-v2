@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import Swal from "sweetalert2";
@@ -41,6 +41,62 @@ export default function SignupPage() {
   const [termsModalOpen, setTermsModalOpen] = useState(false);
   const [termsError, setTermsError] = useState<string | null>(null);
 
+  // Handle Google OAuth signup redirect
+  useEffect(() => {
+    const handleGoogleSignupRedirect = async () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const mode = params.get('mode');
+        
+        if (mode === 'google') {
+          // Wait for Supabase to process OAuth redirect
+          await new Promise(r => setTimeout(r, 500));
+          
+          const { data } = await supabase.auth.getUser();
+          const user = data.user;
+          
+          if (user) {
+            const rawEmail = user.email || '';
+            const normalizedEmail = normalizeEmailForUniqueness(rawEmail);
+            
+            // Check if account already exists
+            const { data: existingProfiles, error: existingProfilesError } = await supabase
+              .from('profiles')
+              .select('email')
+              .ilike('email', rawEmail)
+              .limit(1);
+            if (existingProfilesError) {
+              console.error('Error checking for existing profiles:', existingProfilesError);
+            } else if (existingProfiles.length > 0) {
+              await Swal.fire({
+                icon: 'error',
+                title: 'Account already exists',
+                text: 'This email is already registered. Please sign in instead.',
+                confirmButtonText: 'Go to Sign In',
+                confirmButtonColor: PRIMARY
+              });
+              try { await supabase.auth.signOut(); } catch {}
+              window.location.href = '/login';
+              return;
+            }
+            
+            // Auto-fill email and set role to pet_owner
+            setEmail(rawEmail);
+            setRole('pet_owner');
+            setStep(2);
+            
+            // Clear the URL parameter
+            window.history.replaceState({}, document.title, '/signup');
+          }
+        }
+      } catch (err: any) {
+        console.error('Google signup redirect error:', err);
+      }
+    };
+    
+    handleGoogleSignupRedirect();
+  }, []);
+
   const getPasswordStrength = (pwd: string) => {
     if (!pwd) return { score: 0, label: "", color: "" };
     let score = 0;
@@ -70,40 +126,25 @@ export default function SignupPage() {
   };
 
   const emailAlreadyExists = async (raw: string, normalized: string) => {
-    if (!raw || !normalized) return false;
-    const at = normalized.indexOf("@");
-    if (at < 0) return false;
-    const normalizedLocal = normalized.slice(0, at);
-    const domain = normalized.slice(at + 1);
-    const tables: Array<'profiles' | 'veterinarian_applications'> = ["profiles", "veterinarian_applications"];
-    const gmailPatterns = domain === "gmail.com" ? buildGmailPatterns(normalizedLocal) : [];
-    for (const table of tables) {
-      try {
-        const { data: exactRows, error: exactErr } = await supabase
-          .from(table)
-          .select('email')
-          .ilike('email', normalized)
-          .limit(5);
-        if (!exactErr && (exactRows || []).some((row: any) => normalizeEmailForUniqueness(String(row?.email || '')) === normalized)) {
-          return true;
-        }
-      } catch {}
-      if (gmailPatterns.length) {
-        for (const pattern of gmailPatterns) {
-          try {
-            const { data: gmailRows, error: gmailErr } = await supabase
-              .from(table)
-              .select('email')
-              .ilike('email', pattern)
-              .limit(10);
-            if (!gmailErr && (gmailRows || []).some((row: any) => normalizeEmailForUniqueness(String(row?.email || '')) === normalized)) {
-              return true;
-            }
-          } catch {}
-        }
+    try {
+      console.log('Checking if email exists via RPC:', raw);
+      
+      // Use RPC function to bypass RLS policies
+      const { data, error } = await supabase.rpc('check_email_exists', {
+        email_to_check: raw
+      });
+      
+      if (error) {
+        console.error('RPC error:', error);
+        throw error;
       }
+      
+      console.log('Email exists result:', data);
+      return data === true;
+    } catch (err) {
+      console.error('Error checking email:', err);
+      throw err;
     }
-    return false;
   };
 
   const MAX_FILE_BYTES = 5 * 1024 * 1024;
@@ -179,6 +220,7 @@ export default function SignupPage() {
       }
       if (password !== confirm) {
         Swal.fire({ icon: "error", title: "Mismatch", text: "Passwords do not match." });
+        setLoading(false);
         return;
       }
       if (!termsAccepted) {
@@ -186,29 +228,29 @@ export default function SignupPage() {
         Swal.fire({ icon: "warning", title: "Terms Required", text: "Please accept the Terms & Conditions to proceed." });
         return;
       }
-      // Check if auth user already exists (server-side) and fallback to profiles check
+      setLoading(true);
+      console.log('Validating email...');
       try {
-        const resp = await fetch(`/api/auth-email-exists?email=${encodeURIComponent(rawEmail)}`);
-        if (resp.ok) {
-          const json = await resp.json();
-          if (json?.exists) {
-            await Swal.fire({ icon: 'error', title: 'Email already in use', text: 'Please sign in to your existing account.' });
-            return;
-          }
+        const emailExists = await emailAlreadyExists(rawEmail, normalizedEmail);
+        if (emailExists) {
+          setLoading(false);
+          await Swal.fire({ icon: "error", title: "Email already exists", text: "This email is already registered. Please sign in instead." });
+          return;
         }
-      } catch {}
-      const exists = await emailAlreadyExists(rawEmail, normalizedEmail);
-      if (exists) {
-        await Swal.fire({ icon: 'error', title: 'Email already in use', text: 'Please sign in to your existing account.' });
+      } catch (err) {
+        console.error('Error checking email existence:', err);
+        setLoading(false);
+        await Swal.fire({ icon: "error", title: "Email validation error", text: "Please try again." });
         return;
       }
-      setTermsError(null);
+      setLoading(false);
       setStep(2);
       return;
     }
     if (step === 2) {
       if (!fullName) {
-        Swal.fire({ icon: "warning", title: "Name required", text: "Please enter your full name." });
+        setLoading(false);
+        await Swal.fire({ icon: "warning", title: "Name required", text: "Please enter your full name." });
         return;
       }
       setStep(3);
@@ -219,19 +261,23 @@ export default function SignupPage() {
       // Double-check documents BEFORE sending OTP or creating account
       if (role === "veterinarian") {
         if (!vetLicenseFile) {
+          setLoading(false);
           await Swal.fire({ icon: "warning", title: "Professional License required", text: "Please upload your professional license." });
           return;
         }
         if (!businessPermitFile) {
           await Swal.fire({ icon: "warning", title: "Business Permit required", text: "Please upload your business permit." });
+          setLoading(false);
           return;
         }
         if (!governmentIdFile) {
           await Swal.fire({ icon: "warning", title: "Government ID required", text: "Please upload your government ID." });
+          setLoading(false);
           return;
         }
         if (!vetLicenseNumber.trim()) {
           await Swal.fire({ icon: "warning", title: "License number required", text: "Please enter your professional license number." });
+          setLoading(false);
           return;
         }
       }
@@ -274,10 +320,9 @@ export default function SignupPage() {
               options: { shouldCreateUser: true, emailRedirectTo: SITE_URL },
             });
             if (error) {
-              if ((error as any).status === 429) {
-                await Swal.fire({ icon: 'warning', title: 'OTP rate limited', text: error.message || 'Please wait and try again.' });
+              if (error?.status === 429) {
               } else {
-                await Swal.fire({ icon: 'error', title: 'Failed to send code', text: error.message || 'Try again.' });
+                await Swal.fire({ icon: 'error', title: 'Failed to send code', text: error?.message || 'Try again.' });
               }
             } else {
               await Swal.fire({ icon: 'success', title: 'Code sent', text: 'Check your email for the new code.' });
@@ -470,16 +515,40 @@ export default function SignupPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `https://zambovet-v2.vercel.app/login`,
+          redirectTo: `https://zambovet-v2.vercel.app/signup?mode=google`,
           queryParams: { prompt: 'select_account' },
         },
       });
       if (error) throw error;
       await Swal.fire({ icon: 'info', title: 'Redirecting to Google…' });
     } catch (err: any) {
-      await Swal.fire({ icon: 'error', title: 'Google sign-in failed', text: err?.message || 'Please try again.' });
+      const msg = err?.message || "Please try again.";
+      await Swal.fire({ icon: 'error', title: 'Google sign-up failed', text: msg });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkExistingAccount = async () => {
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      if (data.user) {
+        const { data: existingUser } = await supabase
+          .from("profiles")
+          .select("id, email, full_name, phone, user_role")
+          .eq("id", data.user.id)
+          .maybeSingle();
+        if (existingUser) {
+          await Swal.fire({ icon: "info", title: "Account exists", text: "You already have an account. Please sign in to continue." });
+          window.location.href = "/login";
+        } else {
+          await Swal.fire({ icon: "info", title: "Account created", text: "Your account has been created. Please complete your profile." });
+          window.location.href = "/signup";
+        }
+      }
+    } catch (err: any) {
+      await Swal.fire({ icon: "error", title: "Error checking account", text: err?.message || "Please try again." });
     }
   };
 
@@ -536,7 +605,7 @@ export default function SignupPage() {
                   style={{ borderColor: SECONDARY }}
                 >
                   <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.9 0 7 1.5 9.2 3.6l6.3-6.3C35.9 2.3 30.4 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.7 6c1.8-5.3 6.8-9.7 13.7-9.7z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.2-.4-4.7H24v9h12.7c-.6 3.2-2.4 5.9-5 7.7l7.7 6c4.5-4.1 7.1-10.1 7.1-18z"/><path fill="#FBBC05" d="M10.3 27.3c-.5-1.6-.8-3.3-.8-5s.3-3.4.8-5l-7.7-6C.9 14.2 0 18 0 22.3s.9 8.1 2.6 11.9l7.7-6.9z"/><path fill="#34A853" d="M24 44.6c6.5 0 12-2.1 16-5.7l-7.7-6c-2.1 1.4-4.8 2.3-8.3 2.3-6.9 0-12-4.4-13.7-10.2l-7.7 6c3.9 7.8 12 13.6 21.4 13.6z"/></svg>
-                  <span>Continue with Google</span>
+                  <span>Sign up with Google</span>
                 </button>
                 <div>
                   <div className="text-sm font-medium mb-2" style={{ color: PRIMARY }}>I want to register as:</div>
