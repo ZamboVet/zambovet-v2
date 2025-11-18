@@ -113,12 +113,12 @@ export default function EditPetModal({ open, pet, onClose, onUpdated }: EditPetM
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div ref={modalRef} className="relative w-full max-w-2xl mx-4 rounded-3xl overflow-hidden" role="dialog" aria-modal="true">
-        <div className="absolute -inset-[1px] rounded-3xl bg-gradient-to-br from-blue-400 via-indigo-500 to-blue-600 opacity-80" />
-        <div className="relative rounded-3xl bg-white">
-          <div className="px-6 pt-6 pb-4 flex items-start justify-between">
+      <div ref={modalRef} className="relative w-full sm:w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden max-h-[95dvh] sm:max-h-[95vh] flex flex-col" role="dialog" aria-modal="true">
+        <div className="absolute -inset-[1px] rounded-t-3xl sm:rounded-3xl bg-gradient-to-br from-blue-400 via-indigo-500 to-blue-600 opacity-80" />
+        <div className="relative bg-white flex flex-col min-h-0 h-full">
+          <div className="sticky top-0 z-10 px-4 sm:px-6 pt-[env(safe-area-inset-top)] sm:pt-6 pb-3 sm:pb-4 flex items-center justify-between bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 border-b border-neutral-100">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-xl bg-blue-600 text-white grid place-items-center">
                 <HeartIcon className="h-5 w-5" />
@@ -128,19 +128,19 @@ export default function EditPetModal({ open, pet, onClose, onUpdated }: EditPetM
                 <div className="text-xs text-neutral-500">Update pet information</div>
               </div>
             </div>
-            <button onClick={onClose} className="p-2 rounded-lg hover:bg-neutral-100">
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-neutral-100" aria-label="Close">
               <XMarkIcon className="h-5 w-5" />
             </button>
           </div>
 
-          <div className="px-6 pb-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="px-4 sm:px-6 pt-4 sm:pt-6 pb-20 sm:pb-4 overflow-y-auto flex-1 min-h-0 scroll-smooth">
+            <div className="space-y-5 sm:space-y-6">
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">Pet Name</label>
-                <input value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-xl border border-neutral-200 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
+                <label className="block text-sm font-semibold text-neutral-800 mb-2">Pet Name</label>
+                <input value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-lg border border-neutral-300 px-4 py-3 text-base outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Enter pet name" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">Species</label>
+                <label className="block text-sm font-semibold text-neutral-800 mb-2">Species</label>
                 <select
                   value={species}
                   onChange={(e) => {
@@ -149,7 +149,7 @@ export default function EditPetModal({ open, pet, onClose, onUpdated }: EditPetM
                     setBreed("");
                     setCustomBreed(false);
                   }}
-                  className="w-full rounded-xl border border-neutral-200 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-neutral-300 px-4 py-3 text-base outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">Select species</option>
                   {speciesOptions.map((s) => (
@@ -157,22 +157,28 @@ export default function EditPetModal({ open, pet, onClose, onUpdated }: EditPetM
                   ))}
                 </select>
               </div>
-              <div className="sm:col-span-2">
-                <label className="block text-sm font-medium text-neutral-700 mb-1">Pet Photo</label>
-                <div className="rounded-2xl border-2 border-dashed border-neutral-300 p-5 grid place-items-center text-neutral-500">
+              <div>
+                <label className="block text-sm font-semibold text-neutral-800 mb-2">Pet Photo</label>
+                <div className="rounded-xl border-2 border-dashed border-neutral-300 p-4 sm:p-6 grid place-items-center text-neutral-500 bg-neutral-50 min-h-[120px]">
                   {file ? (
-                    <div className="text-sm">{file.name}</div>
+                    <div className="text-center">
+                      <div className="text-sm font-medium text-neutral-700">{file.name}</div>
+                      <div className="text-xs text-neutral-500 mt-1">Ready to upload</div>
+                    </div>
                   ) : currentUrl ? (
-                    <img src={currentUrl} alt="pet" className="h-32 w-32 object-cover rounded-xl" />
+                    <img src={currentUrl} alt="pet" className="h-28 w-28 object-cover rounded-lg" />
                   ) : (
                     <div className="flex flex-col items-center gap-2">
-                      <PhotoIcon className="h-8 w-8" />
-                      <div className="text-sm">Upload photo</div>
+                      <PhotoIcon className="h-8 w-8 text-neutral-400" />
+                      <div className="text-center">
+                        <div className="text-xs font-medium">Upload photo</div>
+                        <div className="text-[10px] text-neutral-500 mt-0.5">JPG, PNG, GIF • Max 5MB</div>
+                      </div>
                     </div>
                   )}
                 </div>
-                <div className="mt-3 flex items-center gap-3">
-                  <button onClick={chooseFile} className="inline-flex items-center gap-2 rounded-xl bg-blue-100 text-blue-700 px-3 py-2 text-sm hover:bg-blue-200">+ Choose Photo</button>
+                <div className="mt-2 flex gap-2">
+                  <button onClick={chooseFile} className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-blue-600 text-white px-3 py-2 text-xs sm:text-sm font-medium hover:bg-blue-700 active:scale-95 transition">+ Choose</button>
                   {currentUrl && (
                     <button
                       type="button"
@@ -182,58 +188,60 @@ export default function EditPetModal({ open, pet, onClose, onUpdated }: EditPetM
                           setCurrentUrl(null);
                         }
                       }}
-                      className="inline-flex items-center gap-2 rounded-xl bg-white ring-1 ring-neutral-200 px-3 py-2 text-sm"
+                      className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-red-50 text-red-700 border border-red-200 px-3 py-2 text-xs sm:text-sm font-medium hover:bg-red-100 active:scale-95 transition"
                     >
-                      <TrashIcon className="h-4 w-4" /> Remove
+                      <TrashIcon className="h-4 w-4" />
                     </button>
                   )}
                   <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
                 </div>
-                <div className="text-xs text-neutral-500 mt-2">Supported: JPG, PNG, GIF. Max 5MB.</div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">Breed</label>
+                <label className="block text-sm font-semibold text-neutral-800 mb-2">Breed</label>
                 {species && speciesBreeds[species] && !customBreed ? (
                   <>
-                    <select value={breed} onChange={(e) => setBreed(e.target.value)} className="w-full rounded-xl border border-neutral-200 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500">
+                    <select value={breed} onChange={(e) => setBreed(e.target.value)} className="w-full rounded-lg border border-neutral-300 px-4 py-3 text-base outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                       <option value="">Select a breed</option>
                       {speciesBreeds[species].map((b) => (
                         <option key={b} value={b}>{b}</option>
                       ))}
                     </select>
-                    <button type="button" onClick={() => { setBreed(""); setCustomBreed(true); }} className="mt-2 text-blue-700 text-sm font-medium hover:underline">Or type a custom breed</button>
+                    <button type="button" onClick={() => { setBreed(""); setCustomBreed(true); }} className="mt-2 text-blue-600 text-sm font-medium hover:underline">Or type a custom breed</button>
                   </>
                 ) : (
                   <>
-                    <input value={breed} onChange={(e) => setBreed(e.target.value)} className="w-full rounded-xl border border-neutral-200 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
+                    <input value={breed} onChange={(e) => setBreed(e.target.value)} className="w-full rounded-lg border border-neutral-300 px-4 py-3 text-base outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Enter breed" />
                     {species && speciesBreeds[species] && (
-                      <button type="button" onClick={() => { setBreed(""); setCustomBreed(false); }} className="mt-2 text-blue-700 text-sm font-medium hover:underline">Choose from popular breeds</button>
+                      <button type="button" onClick={() => { setBreed(""); setCustomBreed(false); }} className="mt-2 text-blue-600 text-sm font-medium hover:underline">Choose from popular breeds</button>
                     )}
                   </>
                 )}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">Gender</label>
-                <select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full rounded-xl border border-neutral-200 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500">
-                  <option value="">Select gender</option>
-                  {genderOptions.map((g) => (
-                    <option key={g} value={g}>{g[0].toUpperCase() + g.slice(1)}</option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+                <div>
+                  <label className="block text-sm font-semibold text-neutral-800 mb-2">Gender</label>
+                  <select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full rounded-lg border border-neutral-300 px-4 py-3 text-base outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">Select gender</option>
+                    {genderOptions.map((g) => (
+                      <option key={g} value={g}>{g[0].toUpperCase() + g.slice(1)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-neutral-800 mb-2">Date of Birth</label>
+                  <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className="w-full rounded-lg border border-neutral-300 px-4 py-3 text-base outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">Date of Birth</label>
-                <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className="w-full rounded-xl border border-neutral-200 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">Weight (kg)</label>
-                <input type="number" step="0.1" value={weight} onChange={(e) => setWeight(e.target.value)} className="w-full rounded-xl border border-neutral-200 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
+                <label className="block text-sm font-semibold text-neutral-800 mb-2">Weight (kg)</label>
+                <input type="number" step="0.1" value={weight} onChange={(e) => setWeight(e.target.value)} className="w-full rounded-lg border border-neutral-300 px-4 py-3 text-base outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="0.0" />
               </div>
             </div>
-
-            <div className="mt-6 flex items-center justify-between gap-3">
-              <button onClick={onClose} className="w-32 rounded-xl border border-neutral-200 px-4 py-2 text-sm hover:bg-neutral-50">Cancel</button>
-              <button onClick={handleSave} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 text-white px-5 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-60">
+          </div>
+          <div className="sticky bottom-0 z-10 px-4 sm:px-6 py-3 sm:py-4 border-t bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 pb-[env(safe-area-inset-bottom)]">
+            <div className="flex flex-col-reverse sm:flex-row items-center gap-3 sm:justify-between">
+              <button onClick={onClose} className="w-full sm:w-auto rounded-lg border border-neutral-300 px-5 py-3 sm:py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 active:scale-95 transition">Cancel</button>
+              <button onClick={handleSave} disabled={saving} className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 text-white px-5 py-3 sm:py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-60 active:scale-95 transition">
                 {saving ? "Saving…" : "Save Changes"}
               </button>
             </div>

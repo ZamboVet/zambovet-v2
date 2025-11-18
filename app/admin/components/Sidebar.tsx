@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { XMarkIcon } from "@heroicons/react/24/outline";
 import { supabase } from "../../../lib/supabaseClient";
 
 export type AdminNavItem = {
@@ -13,13 +13,13 @@ export type AdminNavItem = {
   icon: React.ElementType;
 };
 
-export default function AdminSidebar({ items, pathname, open }: { items: AdminNavItem[]; pathname: string; open: boolean; }) {
+export default function AdminSidebar({ items, pathname, open, onClose }: { items: AdminNavItem[]; pathname: string; open: boolean; onClose: () => void; }) {
   const [collapsed, setCollapsed] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const [adminName, setAdminName] = useState<string>("Admin User");
   const [adminRole, setAdminRole] = useState<string>("System Administrator");
   const userRef = useRef<HTMLDivElement | null>(null);
-  const router = useRouter();
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     (async()=>{
@@ -50,18 +50,42 @@ export default function AdminSidebar({ items, pathname, open }: { items: AdminNa
     return () => window.removeEventListener('click', onClick);
   }, []);
 
-  const signOut = async () => {
-    try { await supabase.auth.signOut(); } catch {}
-    try {
-      localStorage.removeItem('po_avatar_url');
-      localStorage.removeItem('po_sidebar_collapsed');
-      localStorage.removeItem('vet_sidebar_collapsed');
-      localStorage.removeItem('ownerNotif');
-    } catch {}
-    window.location.href = '/login';
-  };
+  useEffect(() => {
+    const onResize = () => {
+      const mobile = typeof window !== 'undefined' ? window.matchMedia('(max-width: 1023px)').matches : false;
+      setIsMobile(mobile);
+      if (!mobile) {
+        try { document.body.style.overflow = ''; } catch {}
+      }
+    };
+    onResize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    try { document.body.style.overflow = open ? 'hidden' : ''; } catch {}
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    if (open) document.addEventListener('keydown', onKey);
+    return () => {
+      try { document.body.style.overflow = ''; } catch {}
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open, isMobile, onClose]);
+
+  useEffect(() => {
+    const handler = () => onClose();
+    window.addEventListener('admin_sidebar_close', handler as EventListener);
+    return () => window.removeEventListener('admin_sidebar_close', handler as EventListener);
+  }, [onClose]);
+
   return (
-    <aside className={`fixed inset-y-0 left-0 z-40 ${collapsed ? "w-20" : "w-72 lg:w-[280px]"} lg:sticky lg:top-0 lg:h-screen transform ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} transition-all bg-gradient-to-b from-blue-500 to-blue-700 text-white shadow-2xl flex flex-col`}>
+    <aside
+      className={`fixed inset-y-0 left-0 z-40 ${collapsed ? "w-20" : "w-72 lg:w-[280px]"} lg:sticky lg:top-0 lg:h-screen transform ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} transition-transform duration-200 bg-gradient-to-b from-blue-500 to-blue-700 text-white shadow-2xl flex flex-col`}
+      role="navigation"
+      aria-hidden={isMobile && !open}
+    >
       <div className="h-16 flex items-center justify-between px-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden bg-white">
@@ -69,9 +93,16 @@ export default function AdminSidebar({ items, pathname, open }: { items: AdminNa
           </div>
           {!collapsed && <div className="font-bold">Admin Portal</div>}
         </div>
-        <button onClick={()=>setCollapsed(v=>!v)} className="hidden lg:inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white/70 hover:bg-white transition text-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2" aria-label="Toggle sidebar" title="Toggle sidebar">
-          {collapsed ? "»" : "«"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={()=>setCollapsed(v=>!v)} className="hidden lg:inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white/70 hover:bg-white transition text-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2" aria-label="Toggle sidebar" title="Toggle sidebar">
+            {collapsed ? "»" : "«"}
+          </button>
+          {isMobile && (
+            <button onClick={onClose} className="inline-flex lg:hidden items-center justify-center w-9 h-9 rounded-xl bg-white/80 text-blue-800 hover:bg-white" aria-label="Close menu">
+              <XMarkIcon className="h-5 w-5" />
+            </button>
+          )}
+        </div>
       </div>
       <nav className="flex-1 overflow-y-auto px-3 py-3">
         {!collapsed && <div className="px-2 pb-3 text-[11px] font-semibold uppercase tracking-widest text-white/70">Main Navigation</div>}
@@ -84,7 +115,13 @@ export default function AdminSidebar({ items, pathname, open }: { items: AdminNa
                 key={it.href}
                 href={it.href}
                 title={collapsed ? it.label : undefined}
-                onClick={() => { try { if (window.matchMedia && window.matchMedia('(max-width: 1023px)').matches) { window.dispatchEvent(new CustomEvent('toggle-admin-sidebar')); } } catch {} }}
+                onClick={() => {
+                  try {
+                    if (window.matchMedia && window.matchMedia('(max-width: 1023px)').matches) {
+                      onClose();
+                    }
+                  } catch {}
+                }}
                 className={`group relative flex items-center ${collapsed ? "justify-center" : "gap-3 px-3"} py-2.5 rounded-2xl transition ${active ? "bg-white/15 text-white" : "hover:bg-white/10 text-white"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2`}
               >
                 {active && !collapsed && <span className="absolute left-1 top-1/2 -translate-y-1/2 h-6 w-1.5 rounded-full bg-blue-200/90" />}
@@ -118,7 +155,6 @@ export default function AdminSidebar({ items, pathname, open }: { items: AdminNa
         {userOpen && (
           <div className="absolute left-3 right-3 bottom-16 rounded-xl bg-white text-gray-800 shadow-xl ring-1 ring-black/10 py-2 text-sm z-50">
             <Link href="/admin/settings" onClick={()=>setUserOpen(false)} className="block px-3 py-2 hover:bg-gray-50">Profile</Link>
-            <button onClick={signOut} className="block w-full text-left px-3 py-2 hover:bg-gray-50">Sign out</button>
           </div>
         )}
       </div>

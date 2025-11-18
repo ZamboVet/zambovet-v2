@@ -18,7 +18,13 @@ export default function Header({ name, online, verification, specialization, onT
   useEffect(() => { const t = setTimeout(()=>setShow(true), 20); setMounted(true); return () => clearTimeout(t); }, []);
   const now = useMemo(() => (mounted ? new Date() : null), [mounted]);
   const dateStr = now ? now.toLocaleString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : "";
-  const timeStr = now ? now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : "";
+  const timeStr = now
+    ? now.toLocaleTimeString(undefined, {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      })
+    : "";
   return (
     <div className={`relative rounded-3xl p-6 sm:p-8 text-white transition-all duration-300 ${show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}
       style={{

@@ -8,6 +8,7 @@ import { supabase } from "../../lib/supabaseClient";
 import { ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 import TermsAndConditionsModal from "../components/TermsAndConditionsModal";
 import { getSiteUrl } from "../../lib/utils/site";
+import { normalizeEmailForUniqueness } from "../../lib/utils/email";
 
 const PRIMARY = "#0032A0";
 const SECONDARY = "#b3c7e6";
@@ -56,6 +57,55 @@ export default function SignupPage() {
 
   const passwordStrength = getPasswordStrength(password);
 
+  const escapeForLike = (value: string) => value.replace(/[%_]/g, (ch) => `\\${ch}`);
+  const buildGmailPatterns = (normalizedLocal: string) => {
+    if (!normalizedLocal) return ["%@gmail.com", "%@googlemail.com"];
+    const safeLocal = escapeForLike(normalizedLocal);
+    const wildcarded = safeLocal.split("").map((ch) => `${ch}%`).join("");
+    const base = `${wildcarded}%`;
+    return [
+      `${base}@gmail.com`,
+      `${base}@googlemail.com`,
+    ];
+  };
+
+  const emailAlreadyExists = async (raw: string, normalized: string) => {
+    if (!raw || !normalized) return false;
+    const at = normalized.indexOf("@");
+    if (at < 0) return false;
+    const normalizedLocal = normalized.slice(0, at);
+    const domain = normalized.slice(at + 1);
+    const tables: Array<'profiles' | 'veterinarian_applications'> = ["profiles", "veterinarian_applications"];
+    const gmailPatterns = domain === "gmail.com" ? buildGmailPatterns(normalizedLocal) : [];
+    for (const table of tables) {
+      try {
+        const { data: exactRows, error: exactErr } = await supabase
+          .from(table)
+          .select('email')
+          .ilike('email', normalized)
+          .limit(5);
+        if (!exactErr && (exactRows || []).some((row: any) => normalizeEmailForUniqueness(String(row?.email || '')) === normalized)) {
+          return true;
+        }
+      } catch {}
+      if (gmailPatterns.length) {
+        for (const pattern of gmailPatterns) {
+          try {
+            const { data: gmailRows, error: gmailErr } = await supabase
+              .from(table)
+              .select('email')
+              .ilike('email', pattern)
+              .limit(10);
+            if (!gmailErr && (gmailRows || []).some((row: any) => normalizeEmailForUniqueness(String(row?.email || '')) === normalized)) {
+              return true;
+            }
+          } catch {}
+        }
+      }
+    }
+    return false;
+  };
+
   const MAX_FILE_BYTES = 5 * 1024 * 1024;
   const isImage = (f: File) => /^image\//.test(f.type);
   const isAllowed = (f: File) => isImage(f) || f.type === "application/pdf";
@@ -91,8 +141,13 @@ export default function SignupPage() {
   };
 
   const sendOtp = async () => {
+    const targetEmail = email.trim();
+    if (!targetEmail) {
+      await Swal.fire({ icon: 'warning', title: 'Email required', text: 'Enter your email before requesting a code.' });
+      throw new Error('EMAIL_REQUIRED');
+    }
     const { error } = await supabase.auth.signInWithOtp({
-      email,
+      email: targetEmail,
       options: {
         shouldCreateUser: true,
         emailRedirectTo: SITE_URL,
@@ -107,6 +162,8 @@ export default function SignupPage() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    const rawEmail = email.trim();
+    const normalizedEmail = normalizeEmailForUniqueness(rawEmail);
     if (step === 1) {
       if (!role) {
         Swal.fire({ icon: "warning", title: "Role required", text: "Please select a role." });
@@ -131,7 +188,7 @@ export default function SignupPage() {
       }
       // Check if auth user already exists (server-side) and fallback to profiles check
       try {
-        const resp = await fetch(`/api/auth-email-exists?email=${encodeURIComponent(email.trim())}`);
+        const resp = await fetch(`/api/auth-email-exists?email=${encodeURIComponent(rawEmail)}`);
         if (resp.ok) {
           const json = await resp.json();
           if (json?.exists) {
@@ -140,17 +197,11 @@ export default function SignupPage() {
           }
         }
       } catch {}
-      try {
-        const { data: existingProfile } = await supabase
-          .from('profiles')
-          .select('id')
-          .ilike('email', email.trim())
-          .maybeSingle();
-        if (existingProfile) {
-          await Swal.fire({ icon: 'error', title: 'Email already in use', text: 'Please sign in to your existing account.' });
-          return;
-        }
-      } catch {}
+      const exists = await emailAlreadyExists(rawEmail, normalizedEmail);
+      if (exists) {
+        await Swal.fire({ icon: 'error', title: 'Email already in use', text: 'Please sign in to your existing account.' });
+        return;
+      }
       setTermsError(null);
       setStep(2);
       return;
@@ -219,7 +270,7 @@ export default function SignupPage() {
           if (res.isDenied) {
             setLoading(true);
             const { error } = await supabase.auth.signInWithOtp({
-              email,
+              email: rawEmail,
               options: { shouldCreateUser: true, emailRedirectTo: SITE_URL },
             });
             if (error) {
@@ -238,7 +289,7 @@ export default function SignupPage() {
             return;
           }
           const clean = String(res.value).replace(/\D/g, '').slice(0,6);
-          const { data: vdata, error: verr } = await supabase.auth.verifyOtp({ email, token: clean, type: 'email' });
+          const { data: vdata, error: verr } = await supabase.auth.verifyOtp({ email: rawEmail, token: clean, type: 'email' });
           if (verr || !vdata?.session) {
             await Swal.fire({ icon: 'error', title: 'Invalid or expired code', text: verr?.message || 'Please try again or resend a new code.' });
             continue; // allow retry or resend
@@ -273,7 +324,7 @@ export default function SignupPage() {
       hasSession = true;
       // If we already have a session, upsert into profiles now (FK requires auth.users row to be visible)
       if (hasSession) {
-        const payload = { id: user.id, email, full_name: fullName, phone, user_role: role, verification_status: role === "veterinarian" ? "pending" : "approved" };
+        const payload = { id: user.id, email: rawEmail, full_name: fullName, phone, user_role: role, verification_status: role === "veterinarian" ? "pending" : "approved" };
         let attempt = 0;
         let lastErr: any = null;
         while (attempt < 5) {
@@ -353,7 +404,7 @@ export default function SignupPage() {
       const business_permit_url = await up(businessPermitFile!, `business-permits/${uid}/${Date.now()}-${businessPermitFile!.name}`);
       const government_id_url = await up(governmentIdFile!, `government-ids/${uid}/${Date.now()}-${governmentIdFile!.name}`);
       const { error: appErr } = await supabase.from("veterinarian_applications").insert({
-        email,
+        email: rawEmail,
         full_name: fullName,
         phone,
         license_number: vetLicenseNumber.trim(),
@@ -419,7 +470,7 @@ export default function SignupPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${SITE_URL}/login`,
+          redirectTo: `https://zambovet-v2.vercel.app/login`,
           queryParams: { prompt: 'select_account' },
         },
       });

@@ -8,6 +8,7 @@ import { CalendarDaysIcon, HeartIcon, HomeModernIcon, MapPinIcon, StarIcon } fro
 import { CheckBadgeIcon, ClipboardDocumentListIcon, PhoneIcon, InformationCircleIcon } from "@heroicons/react/24/outline";
 import { supabase } from "../../lib/supabaseClient";
 import CreateAppointmentModal from "./components/CreateAppointmentModal";
+import WelcomeDisplay from "./components/WelcomeDisplay"; // Added import statement
 import { buildUtc, isAtLeastMinutesFromNow } from "../../lib/utils/time";
 import { swalConfirmColor } from "../../lib/ui/tokens";
 
@@ -444,6 +445,7 @@ export default function PetOwnerDashboard() {
   return (
     <div className="min-h-dvh bg-neutral-50">
       <div className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 lg:px-8 pt-4 sm:pt-5 md:pt-6 pb-6 sm:pb-8 md:pb-10">
+        <WelcomeDisplay />
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
           {loading
             ? Array.from({ length: 3 }).map((_, i) => (

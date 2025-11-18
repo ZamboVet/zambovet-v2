@@ -15,7 +15,13 @@ export type CreateAppointmentModalProps = {
 };
 
 type Pet = { id: number; name: string; species: string | null };
-type Vet = { id: number; full_name: string };
+type Vet = {
+  id: number;
+  full_name: string;
+  user_id: string;
+  verification_status: string | null;
+  is_active: boolean | null;
+};
 
 type Clinic = { id: number; name: string; operating_hours?: string | null };
 
@@ -66,10 +72,20 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
       try {
         const { data } = await supabase
           .from('veterinarians')
-          .select('id,full_name')
+          .select('id,user_id,full_name,profiles!inner(verification_status,is_active)')
           .eq('clinic_id', clinicId as number)
+          .eq('profiles.verification_status', 'approved')
+          .eq('profiles.is_active', true)
           .order('full_name', { ascending: true });
-        const list = (data || []) as Vet[];
+        const list = Array.isArray(data)
+          ? data.map((row: any) => ({
+              id: row.id as number,
+              full_name: row.full_name as string,
+              user_id: row.user_id as string,
+              verification_status: row?.profiles?.verification_status ?? null,
+              is_active: row?.profiles?.is_active ?? null,
+            }))
+          : [];
         setVets(list);
         if (list.length === 0) {
           setVeterinarianId("");
@@ -195,6 +211,24 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
     }
     setSaving(true);
     try {
+      const vetForBooking = assignedVet;
+      if (!vetForBooking) {
+        await Swal.fire({ icon: "error", title: "Veterinarian unavailable", text: "Please select an active veterinarian before booking." });
+        setSaving(false);
+        return;
+      }
+      const { data: vetProfileCheck, error: vetProfileErr } = await supabase
+        .from('profiles')
+        .select('verification_status,is_active')
+        .eq('id', vetForBooking.user_id)
+        .maybeSingle();
+      if (vetProfileErr) throw vetProfileErr;
+      if (!vetProfileCheck || vetProfileCheck.verification_status !== 'approved' || vetProfileCheck.is_active === false) {
+        await Swal.fire({ icon: 'info', title: 'Veterinarian inactive', text: 'This veterinarian is no longer active. Please choose another provider.' });
+        setSaving(false);
+        return;
+      }
+
       // Check for duplicate appointment by same pet owner on same date
       const { data: ownerAppts, error: oErr } = await supabase
         .from("appointments")
@@ -236,32 +270,26 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
         clinic_id: clinicId || null,
         pet_owner_id: ownerId,
         patient_id: patientId,
-        veterinarian_id: veterinarianId,
+        veterinarian_id: typeof veterinarianId === "number" ? veterinarianId : Number(veterinarianId),
+        booking_type: "web",
       };
       const { data, error } = await supabase.from("appointments").insert(payload).select("*").single();
       if (error) throw error;
-      
+
       // Create notification for the veterinarian
       try {
-        // Get veterinarian's user_id from veterinarians table
-        const { data: vetData } = await supabase
-          .from("veterinarians")
-          .select("user_id")
-          .eq("id", veterinarianId)
-          .maybeSingle();
-        
         // Get patient name for better notification message
         const { data: patientData } = await supabase
           .from("patients")
           .select("name")
           .eq("id", patientId)
           .maybeSingle();
-        
+
         const patientName = patientData?.name || "a patient";
-        
-        if (vetData?.user_id) {
+
+        if (vetForBooking.user_id) {
           await supabase.from('notifications').insert({
-            user_id: vetData.user_id,
+            user_id: vetForBooking.user_id,
             title: 'New Appointment Request',
             message: `New appointment request for ${patientName} on ${data.appointment_date} at ${data.appointment_time}`,
             notification_type: 'appointment',

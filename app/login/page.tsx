@@ -88,13 +88,20 @@ export default function LoginPage() {
 
   // If already signed in (e.g., after OAuth redirect), ensure profile and route
   useEffect(() => {
+    let isMounted = true;
     (async () => {
       try {
+        // Wait for Supabase to process OAuth redirect
+        await new Promise(r => setTimeout(r, 500));
+        if (!isMounted) return;
+        
         const { data } = await supabase.auth.getUser();
         const user = data.user;
-        if (!user) return;
+        if (!user || !isMounted) return;
+        
         await ensureProfileAndRoute(user);
       } catch (e: any) {
+        if (!isMounted) return;
         const msg = (e?.message || "").toString();
         if (/Refresh Token Not Found/i.test(msg)) {
           try { await supabase.auth.signOut(); } catch {}
@@ -102,6 +109,7 @@ export default function LoginPage() {
         }
       }
     })();
+    return () => { isMounted = false; };
   }, [router]);
 
   useEffect(() => {
@@ -289,7 +297,7 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${SITE_URL}/login`,
+          redirectTo: `https://zambovet-v2.vercel.app/login`,
           queryParams: { prompt: 'select_account' },
         },
       });
