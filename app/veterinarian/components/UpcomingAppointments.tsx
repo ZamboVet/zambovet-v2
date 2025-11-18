@@ -21,6 +21,17 @@ type Props = {
 };
 
 export default function UpcomingAppointments({ appointments, loading, range, setRange, mounted, primary }: Props) {
+  const formatTime = (time: string) => {
+    if (!time) return "-";
+    const [hourStr, minuteStr] = time.split(":");
+    const minutes = (minuteStr ?? "00").slice(0, 2);
+    const hourNum = Number(hourStr);
+    if (Number.isNaN(hourNum)) return time;
+    const period = hourNum >= 12 ? "PM" : "AM";
+    const hour12 = ((hourNum + 11) % 12) + 1;
+    return `${hour12}:${minutes} ${period}`;
+  };
+
   return (
     <div className="lg:col-span-2 rounded-2xl bg-white p-5 shadow ring-1 ring-black/5">
       <div className="flex items-center justify-between mb-3">
@@ -56,7 +67,7 @@ export default function UpcomingAppointments({ appointments, loading, range, set
               <div className="flex items-center gap-3">
                 <CalendarDaysIcon className="w-9 h-9 rounded-xl p-2 bg-blue-50 text-blue-700" />
                 <div>
-                  <div className="font-medium" style={{ color: primary }}>{a.appointment_date} • {a.appointment_time}</div>
+                  <div className="font-medium" style={{ color: primary }}>{a.appointment_date} • {formatTime(a.appointment_time)}</div>
                   <div className="text-sm text-gray-500 truncate">{a.reason_for_visit || "Consultation"}</div>
                 </div>
               </div>

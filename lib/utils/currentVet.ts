@@ -1,6 +1,6 @@
 import { supabase } from "../supabaseClient";
 
-export type Profile = { id: string; email?: string | null; full_name?: string | null; phone?: string | null; user_role: string; verification_status?: string };
+export type Profile = { id: string; email?: string | null; full_name?: string | null; phone?: string | null; user_role: string; verification_status?: string; is_active?: boolean | null };
 export type Vet = { id: number; user_id: string; full_name: string; specialization?: string | null; clinic_id?: number | null; is_available?: boolean; license_number?: string | null; average_rating?: number | null };
 
 export type CurrentVetResult = {
@@ -17,11 +17,15 @@ export async function getCurrentVet(): Promise<CurrentVetResult> {
 
   const { data: p, error: pErr } = await supabase
     .from("profiles")
-    .select("id,email,full_name,phone,user_role,verification_status")
+    .select("id,email,full_name,phone,user_role,verification_status,is_active")
     .eq("id", user.id)
     .single();
   if (pErr) throw pErr;
   if (p.user_role !== "veterinarian") throw new Error("Veterinarian account required");
+
+  if (p.is_active === false) {
+    return { userId: user.id, profile: p as Profile, vet: null };
+  }
 
   // Fetch most recent veterinarian row for this user
   const { data: vetData, error: vErr } = await supabase

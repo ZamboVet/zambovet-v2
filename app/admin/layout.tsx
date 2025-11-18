@@ -33,7 +33,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         />
       )}
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] min-h-screen">
-        <AdminSidebar items={items} pathname={pathname} open={open} />
+        <AdminSidebar items={items} pathname={pathname} open={open} onClose={() => setOpen(false)} />
 
         <div className="flex flex-col lg:ml-0">
           <AdminTopbar />

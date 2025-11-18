@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { XMarkIcon, MapPinIcon } from "@heroicons/react/24/outline";
 import { supabase } from "../../../lib/supabaseClient";
+import { ZAMBOANGA_CITY_BOUNDS, filterPointsInZamboangaCity, getZamboangaCityBounds } from "../../../lib/utils/mapBounds";
 
 export type AllClinicsMapModalProps = {
   open: boolean;
@@ -128,11 +129,12 @@ export default function AllClinicsMapModal({ open, onClose, points }: AllClinics
         }
         const L = (await import('leaflet')).default;
         if (cancelled || !mapContainerRef.current) return;
-        // Build bounds from points with coords
-        const coords = points.filter(p => isFinite(p.lat) && isFinite(p.lon));
-        const center: [number, number] = coords.length ? [coords[0].lat, coords[0].lon] : [14.5995, 120.9842];
+        // Filter points to only show those within Zamboanga City
+        const validCoords = points.filter(p => isFinite(p.lat) && isFinite(p.lon));
+        const coords = filterPointsInZamboangaCity(validCoords);
+        const center: [number, number] = ZAMBOANGA_CITY_BOUNDS.center;
         if (!mapRef.current) {
-          mapRef.current = L.map(mapContainerRef.current, { zoomControl: true, attributionControl: true }).setView(center, 12);
+          mapRef.current = L.map(mapContainerRef.current, { zoomControl: true, attributionControl: true, maxBounds: getZamboangaCityBounds(L), maxBoundsViscosity: 1.0 }).setView(center, 13);
           L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(mapRef.current);
         }
         // Clear previous markers
@@ -213,7 +215,12 @@ export default function AllClinicsMapModal({ open, onClose, points }: AllClinics
           });
         }
         
-        if (coords.length > 1) mapRef.current.fitBounds(bounds.pad(0.15));
+        if (coords.length > 0) {
+          const zamboangaBounds = getZamboangaCityBounds(L);
+          mapRef.current.fitBounds(coords.length > 1 ? bounds.pad(0.15) : zamboangaBounds);
+        } else {
+          mapRef.current.fitBounds(getZamboangaCityBounds(L));
+        }
       } catch {
         // ignore if leaflet not available yet
       }
