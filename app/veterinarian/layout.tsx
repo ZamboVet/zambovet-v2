@@ -1,15 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Poppins } from "next/font/google";
 import Sidebar from "./components/Sidebar";
 import HeaderBar from "./components/HeaderBar";
+import PendingVetBanner from "./components/PendingVetBanner";
+import { getVetAccessControl } from "../../lib/utils/vetAccessControl";
 
 const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 const PRIMARY = "#0B63C7";
 
 export default function VetLayout({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [isPending, setIsPending] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const access = await getVetAccessControl();
+        setIsPending(access.isPending);
+      } catch (err) {
+        console.error('Error checking vet access:', err);
+      }
+      setMounted(true);
+    })();
+  }, []);
+
+  if (!mounted) return null;
+
   return (
     <div
       className={`${poppins.className} min-h-screen relative`}
@@ -29,6 +48,7 @@ export default function VetLayout({ children }: { children: React.ReactNode }) {
       <Sidebar open={open} onClose={() => setOpen(false)} primary={PRIMARY} />
       <div className="lg:pl-72">
         <HeaderBar onMenu={() => setOpen(true)} primary={PRIMARY} />
+        <PendingVetBanner isPending={isPending} />
         <main className="px-4 sm:px-6 lg:px-8 pb-8">{children}</main>
       </div>
     </div>

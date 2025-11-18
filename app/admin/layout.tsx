@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { HomeIcon, UsersIcon, BuildingOfficeIcon, UserCircleIcon, ClockIcon, Cog6ToothIcon } from "@heroicons/react/24/outline";
+import { HomeIcon, UsersIcon, BuildingOfficeIcon, UserCircleIcon, ClockIcon, Cog6ToothIcon, BellIcon } from "@heroicons/react/24/outline";
 import AdminSidebar from "./components/Sidebar";
 import AdminTopbar from "./components/Topbar";
 
@@ -15,6 +15,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: "/admin/clinics", label: "Clinic Management", icon: BuildingOfficeIcon, desc: "Clinic listings" },
     { href: "/admin/veterinarians", label: "Veterinarian Registry", icon: UserCircleIcon, desc: "Medical professionals" },
     { href: "/admin/activity", label: "Recent Activity", icon: ClockIcon, desc: "Activity logs" },
+    { href: "/admin/notifications", label: "Approval Requests", icon: BellIcon, desc: "Pending approvals" },
     { href: "/admin/settings", label: "Settings", icon: Cog6ToothIcon, desc: "Settings & Configuration" },
   ];
   useEffect(() => {
