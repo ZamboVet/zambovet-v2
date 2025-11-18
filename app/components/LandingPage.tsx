@@ -609,12 +609,6 @@ export default function StaticLandingPage() {
               <div className="space-y-6">
                 {[
                   {
-                    icon: PhoneIcon,
-                    title: "Phone",
-                    info: contact.phone || settings.contactPhone,
-                    subInfo: "Available 24/7 for emergencies",
-                  },
-                  {
                     icon: EnvelopeIcon,
                     title: "Email",
                     info: contact.email || settings.contactEmail,
@@ -641,29 +635,6 @@ export default function StaticLandingPage() {
                 ))}
               </div>
 
-              <div className="bg-white rounded-2xl p-6 md:p-8 shadow-lg">
-                <h3 className="text-xl font-bold text-[#0032A0] mb-4">Office Hours</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-black">Monday - Friday</span>
-                    <span className="text-[#0032A0] font-medium">8:00 AM - 8:00 PM</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-black">Saturday</span>
-                    <span className="text-[#0032A0] font-medium">9:00 AM - 6:00 PM</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-black">Sunday</span>
-                    <span className="text-[#0032A0] font-medium">10:00 AM - 4:00 PM</span>
-                  </div>
-                  <div className="border-t border-[#91c8e4] pt-2 mt-4">
-                    <div className="flex justify-between">
-                      <span className="text-blue-600 font-medium">Professional</span>
-                      <span className="text-red-600 font-medium">24/7 Available</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
 
             
