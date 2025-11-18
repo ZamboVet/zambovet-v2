@@ -11,6 +11,7 @@ import QuickActions from "./components/QuickActions";
 import UpcomingAppointments from "./components/UpcomingAppointments";
 import RecentReviews from "./components/RecentReviews";
 import ProfileCard from "./components/ProfileCard";
+import RestrictedAccessOverlay from "./components/RestrictedAccessOverlay";
 import { AcademicCapIcon, CalendarDaysIcon, CheckCircleIcon, ClockIcon, StarIcon, UserCircleIcon } from "@heroicons/react/24/outline";
 import { Poppins } from "next/font/google";
 
@@ -63,6 +64,8 @@ export default function VetDashboardPage() {
   const [range, setRange] = useState("30d");
   const [mounted, setMounted] = useState(false);
   const [vetClass, setVetClass] = useState<{ category: string | null; classification_level: string | null; license_type: string | null } | null>(null);
+
+  const isPending = profile?.verification_status === "pending";
 
   const today = new Date();
   const todayISO = today.toISOString().slice(0, 10);
@@ -196,21 +199,25 @@ export default function VetDashboardPage() {
         />
 
         <div className="rounded-3xl bg-white/70 backdrop-blur p-5 sm:p-6 shadow-md space-y-6">
-          <KPIs today={counts.today} pending={counts.pending} confirmed={counts.confirmed} rating={vet?.average_rating ?? 0} primary={PRIMARY} />
+          <RestrictedAccessOverlay isRestricted={isPending}>
+            <KPIs today={counts.today} pending={counts.pending} confirmed={counts.confirmed} rating={vet?.average_rating ?? 0} primary={PRIMARY} />
+          </RestrictedAccessOverlay>
 
           <QuickActions />
 
-          <div className="grid lg:grid-cols-3 gap-6">
-            <UpcomingAppointments
-              appointments={appointments}
-              loading={loading}
-              range={range}
-              setRange={setRange}
-              mounted={mounted}
-              primary={PRIMARY}
-            />
-            <RecentReviews reviews={reviews} loading={loading} primary={PRIMARY} />
-          </div>
+          <RestrictedAccessOverlay isRestricted={isPending}>
+            <div className="grid lg:grid-cols-3 gap-6">
+              <UpcomingAppointments
+                appointments={appointments}
+                loading={loading}
+                range={range}
+                setRange={setRange}
+                mounted={mounted}
+                primary={PRIMARY}
+              />
+              <RecentReviews reviews={reviews} loading={loading} primary={PRIMARY} />
+            </div>
+          </RestrictedAccessOverlay>
 
           <ProfileCard
             name={vet?.full_name || profile?.full_name || "-"}
