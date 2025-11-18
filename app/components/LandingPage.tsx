@@ -63,6 +63,23 @@ export default function StaticLandingPage() {
     setMounted(true);
   }, []);
 
+  useEffect(() => {
+    const channel = supabase
+      .channel('landing_page_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'landing_page_settings', filter: 'id=eq.1' }, (payload: any) => {
+        const newSettings = payload.new?.settings || payload.record?.settings;
+        if (newSettings) {
+          const merged = { ...DEFAULT_SETTINGS, ...newSettings };
+          setSettings(merged);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   // Load dynamic landing content
   useEffect(() => {
     (async () => {

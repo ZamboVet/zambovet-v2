@@ -515,7 +515,7 @@ export default function SignupPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `https://zambovet-v2.vercel.app/signup?mode=google`,
+          redirectTo: `${window.location.origin}/signup?mode=google`,
           queryParams: { prompt: 'select_account' },
         },
       });
