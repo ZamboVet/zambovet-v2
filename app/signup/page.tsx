@@ -399,7 +399,7 @@ export default function SignupPage() {
           if (poErr) throw poErr;
         }
         await Swal.fire({ icon: "success", title: "Account created" });
-        window.location.href = "/login";
+        window.location.href = "/pet_owner";
         return;
       }
       // If role is veterinarian and there's no active session yet, we'll still try to upload documents.
@@ -470,7 +470,7 @@ export default function SignupPage() {
         throw appErr;
       }
       await Swal.fire({ icon: "success", title: "Application submitted", text: "We will notify you once the admin verifies your documents." });
-      window.location.href = "/login";
+      window.location.href = "/veterinarian";
     } catch (err: any) {
       const msg = err?.message || "Please try again.";
       const status = err?.status;
