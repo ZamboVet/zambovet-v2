@@ -14,9 +14,29 @@ export default function DataRepairPage() {
     const logs: string[] = [];
 
     try {
-      logs.push("Starting veterinarian user_id repair...");
+      logs.push("Starting veterinarian user_id repair...\n");
 
-      // Fetch all vets with NULL user_id
+      // First, fetch ALL vets to see the current state
+      const { data: allVets, error: allVetsErr } = await supabase
+        .from("veterinarians")
+        .select("id,full_name,user_id,clinic_id")
+        .order("id", { ascending: true });
+
+      if (allVetsErr) throw allVetsErr;
+
+      logs.push(`=== ALL VETERINARIANS IN DATABASE ===`);
+      logs.push(`Total vets: ${allVets?.length || 0}\n`);
+      
+      if (allVets && allVets.length > 0) {
+        allVets.forEach((vet: any) => {
+          const userIdStatus = vet.user_id ? `✅ ${vet.user_id}` : `❌ NULL`;
+          logs.push(`Vet ${vet.id}: ${vet.full_name} | user_id: ${userIdStatus} | clinic_id: ${vet.clinic_id}`);
+        });
+      }
+
+      logs.push(`\n=== STARTING REPAIR ===\n`);
+
+      // Now fetch only vets with NULL user_id
       const { data: vetsWithoutUserId, error: fetchErr } = await supabase
         .from("veterinarians")
         .select("id,full_name,user_id")
@@ -24,7 +44,7 @@ export default function DataRepairPage() {
 
       if (fetchErr) throw fetchErr;
 
-      logs.push(`Found ${vetsWithoutUserId?.length || 0} vets with missing user_id`);
+      logs.push(`Found ${vetsWithoutUserId?.length || 0} vets with missing user_id\n`);
 
       if (!vetsWithoutUserId || vetsWithoutUserId.length === 0) {
         logs.push("No vets need repair.");
