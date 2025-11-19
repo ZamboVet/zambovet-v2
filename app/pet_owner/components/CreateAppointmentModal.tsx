@@ -85,30 +85,45 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
           return;
         }
         
-        // Filter by checking each vet's profile status
-        const list: Vet[] = [];
-        for (const row of vetsData) {
-          if (!row.user_id) continue;
-          
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('verification_status,is_active')
-            .eq('id', row.user_id)
-            .maybeSingle();
-          
-          if (profileError || !profile) continue;
-          
-          // Only include if profile is approved and active
-          if (profile.verification_status === 'approved' && profile.is_active === true) {
-            list.push({
-              id: row.id as number,
-              full_name: row.full_name as string,
-              user_id: row.user_id as string,
-              verification_status: profile.verification_status,
-              is_active: profile.is_active,
-            });
-          }
+        // Batch fetch all profiles at once for efficiency
+        const userIds = vetsData
+          .map(v => v.user_id)
+          .filter((id): id is string => !!id);
+        
+        if (userIds.length === 0) {
+          setVets([]);
+          setVeterinarianId("");
+          return;
         }
+        
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id,verification_status,is_active')
+          .in('id', userIds);
+        
+        if (profilesError) throw profilesError;
+        
+        // Create a map of profile data by user_id
+        const profileMap: Record<string, any> = {};
+        (profiles || []).forEach(p => {
+          profileMap[p.id] = p;
+        });
+        
+        // Filter vets based on their profile status
+        const list: Vet[] = vetsData
+          .filter(row => {
+            const profile = profileMap[row.user_id];
+            return profile && 
+                   profile.verification_status === 'approved' && 
+                   profile.is_active === true;
+          })
+          .map(row => ({
+            id: row.id as number,
+            full_name: row.full_name as string,
+            user_id: row.user_id as string,
+            verification_status: profileMap[row.user_id]?.verification_status ?? null,
+            is_active: profileMap[row.user_id]?.is_active ?? null,
+          }));
         
         setVets(list);
         if (list.length === 0) {
