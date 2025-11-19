@@ -57,6 +57,8 @@ export default function VetPatientsPage() {
           setLoading(false);
           return;
         }
+        
+        // Fetch vet record
         const { data: v, error: vErr } = await supabase
           .from("veterinarians")
           .select("id,user_id,full_name")
@@ -64,26 +66,25 @@ export default function VetPatientsPage() {
           .order("id", { ascending: false })
           .limit(1)
           .maybeSingle();
+        
         if (vErr && vErr.code !== "PGRST116") throw vErr;
+        
         if (!v) {
-          // Auto-create vet record when account is approved but record is missing
-          const payload = { user_id: p.id, full_name: p.full_name || 'Veterinarian', is_available: true } as any;
-          const { data: newVet, error: upErr } = await supabase
-            .from('veterinarians')
-            .upsert(payload, { onConflict: 'user_id' })
-            .select('id,user_id,full_name')
-            .single();
-          if (upErr) {
-            await Swal.fire({ icon: "error", title: "Profile setup failed", text: upErr.message || "Please try again." });
-            setVet(null);
-            setItems([]);
-            setLoading(false);
-            return;
-          }
-          setVet(newVet as unknown as Vet);
-        } else {
-          setVet(v as Vet);
+          // Vet record should have been created by getCurrentVet() or admin approval
+          // If missing, it's a data integrity issue
+          console.error('Veterinarian record not found for approved user:', p.id);
+          await Swal.fire({ 
+            icon: "error", 
+            title: "Profile setup failed", 
+            text: "Your veterinarian profile could not be found. Please contact support." 
+          });
+          setVet(null);
+          setItems([]);
+          setLoading(false);
+          return;
         }
+        
+        setVet(v as Vet);
       } catch (err: any) {
         await Swal.fire({ icon: "error", title: "Failed to load", text: err?.message || "Please try again." });
       }
