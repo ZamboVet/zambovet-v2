@@ -70,22 +70,46 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
     const run = async () => {
       if (!open || !clinicId) return;
       try {
-        const { data } = await supabase
+        // Fetch veterinarians for the clinic with their profile data
+        const { data: vetsData, error: vetsError } = await supabase
           .from('veterinarians')
-          .select('id,user_id,full_name,profiles!inner(verification_status,is_active)')
+          .select('id,user_id,full_name')
           .eq('clinic_id', clinicId as number)
-          .eq('profiles.verification_status', 'approved')
-          .eq('profiles.is_active', true)
           .order('full_name', { ascending: true });
-        const list = Array.isArray(data)
-          ? data.map((row: any) => ({
+        
+        if (vetsError) throw vetsError;
+        
+        if (!Array.isArray(vetsData) || vetsData.length === 0) {
+          setVets([]);
+          setVeterinarianId("");
+          return;
+        }
+        
+        // Filter by checking each vet's profile status
+        const list: Vet[] = [];
+        for (const row of vetsData) {
+          if (!row.user_id) continue;
+          
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('verification_status,is_active')
+            .eq('id', row.user_id)
+            .maybeSingle();
+          
+          if (profileError || !profile) continue;
+          
+          // Only include if profile is approved and active
+          if (profile.verification_status === 'approved' && profile.is_active === true) {
+            list.push({
               id: row.id as number,
               full_name: row.full_name as string,
               user_id: row.user_id as string,
-              verification_status: row?.profiles?.verification_status ?? null,
-              is_active: row?.profiles?.is_active ?? null,
-            }))
-          : [];
+              verification_status: profile.verification_status,
+              is_active: profile.is_active,
+            });
+          }
+        }
+        
         setVets(list);
         if (list.length === 0) {
           setVeterinarianId("");
@@ -98,7 +122,8 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
             return list[0].id;
           });
         }
-      } catch {
+      } catch (error) {
+        console.error('Error fetching veterinarians:', error);
         setVets([]);
         setVeterinarianId("");
       }
