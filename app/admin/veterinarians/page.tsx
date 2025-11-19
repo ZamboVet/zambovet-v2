@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
 import { supabase } from "../../../lib/supabaseClient";
-import { MagnifyingGlassIcon, AcademicCapIcon, ChevronLeftIcon, ChevronRightIcon, EnvelopeIcon, IdentificationIcon, CheckCircleIcon, XCircleIcon, EyeIcon } from "@heroicons/react/24/outline";
+import { MagnifyingGlassIcon, AcademicCapIcon, ChevronLeftIcon, ChevronRightIcon, EnvelopeIcon, IdentificationIcon, CheckCircleIcon, XCircleIcon, EyeIcon, BellIcon } from "@heroicons/react/24/outline";
 
 const PRIMARY = "#0B63C7";
 
@@ -34,6 +34,7 @@ export default function AdminVetsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
   const [reviewerId, setReviewerId] = useState<string | null>(null);
+  const [approvalNotifications, setApprovalNotifications] = useState<any[]>([]);
 
   useEffect(() => {
     const init = async () => {
@@ -64,6 +65,23 @@ export default function AdminVetsPage() {
     };
     fetchApps();
   }, [status, q]);
+
+  useEffect(() => {
+    const fetchApprovalNotifications = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("notifications")
+          .select("id,title,message,notification_type,user_id")
+          .eq("title", "Veterinarian Approval Request")
+          .order("created_at", { ascending: false });
+        if (error) throw error;
+        setApprovalNotifications((data || []) as any[]);
+      } catch (err: any) {
+        await Swal.fire({ icon: "error", title: "Failed to load approval notifications", text: err?.message || "Please try again." });
+      }
+    };
+    fetchApprovalNotifications();
+  }, []);
 
   const filtered = useMemo(() => rows, [rows]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
