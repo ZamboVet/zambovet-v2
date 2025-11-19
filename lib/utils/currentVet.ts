@@ -41,15 +41,19 @@ export async function getCurrentVet(): Promise<CurrentVetResult> {
   if (!vet && p.verification_status === "approved") {
     // Create a placeholder vet record for approved profiles
     const displayName = p.full_name || p.email || "Veterinarian";
+    console.log(`[getCurrentVet] Creating vet record for approved profile: ${p.id}`);
+    
     // Try insert first; if unique violation occurs, fetch existing row
     const { data: created, error: cErr } = await supabase
       .from("veterinarians")
       .insert({ user_id: p.id, full_name: displayName, is_available: false })
       .select("id,user_id,full_name,specialization,clinic_id,is_available,license_number,average_rating")
       .maybeSingle();
+    
     if (cErr) {
-      // 23505 = unique violation (in case a unique constraint exists later) or other conflict; fetch latest
+      // 23505 = unique violation (another process created it); fetch latest
       if ((cErr as any).code === '23505') {
+        console.log(`[getCurrentVet] Unique constraint violation, fetching existing record for user: ${p.id}`);
         const { data: existing, error: fErr } = await supabase
           .from("veterinarians")
           .select("id,user_id,full_name,specialization,clinic_id,is_available,license_number,average_rating")
@@ -57,14 +61,20 @@ export async function getCurrentVet(): Promise<CurrentVetResult> {
           .order("id", { ascending: false })
           .limit(1)
           .maybeSingle();
-        if (fErr) throw fErr;
+        if (fErr) {
+          console.error(`[getCurrentVet] Error fetching existing vet after conflict: ${fErr.message}`);
+          throw fErr;
+        }
         vet = existing as Vet;
+        console.log(`[getCurrentVet] Successfully fetched existing vet record: ${vet?.id}`);
       } else {
-        // If insertion failed due to any other reason, rethrow
+        // If insertion failed due to any other reason, log and rethrow
+        console.error(`[getCurrentVet] Unexpected error creating vet: ${cErr.message}`);
         throw cErr;
       }
     } else {
       vet = created as Vet;
+      console.log(`[getCurrentVet] Successfully created new vet record: ${vet?.id}`);
     }
   }
 

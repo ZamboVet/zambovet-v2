@@ -53,7 +53,8 @@ export default function VetSettingsPage() {
           return;
         }
         setProfile(p as Profile);
-        // First try to get the veterinarian profile (take most recent to guard against duplicates)
+        
+        // Fetch the veterinarian profile (take most recent to guard against duplicates)
         const { data: vetData, error: vetError } = await supabase
           .from("veterinarians")
           .select("id,user_id,full_name,is_available,license_number")
@@ -62,72 +63,25 @@ export default function VetSettingsPage() {
           .limit(1)
           .maybeSingle();
           
-        let v = vetData;
-        
-        // If there was an error that's not "no rows" error, throw it
         if (vetError && vetError.code !== "PGRST116") {
           console.error('Error fetching veterinarian profile:', vetError);
           throw vetError;
         }
         
-        // If no vet profile found, try to create one
+        const v = vetData;
+        
         if (!v) {
-          console.log('No veterinarian profile found, attempting to create one');
-          try {
-            // First try to get any existing application data
-            const { data: appsRecent } = await supabase
-              .from('veterinarian_applications')
-              .select('id,full_name,license_number,status,created_at')
-              .ilike('email', p.email)
-              .order('created_at', { ascending: false })
-              .limit(1);
-              
-            const app = (appsRecent || [])[0] as any as { full_name?: string | null; license_number?: string | null } | undefined;
-            
-            // Try to insert the new veterinarian record
-            const insertPayload = { 
-              user_id: p.id, 
-              full_name: (app?.full_name || p.full_name || 'Veterinarian'), 
-              license_number: app?.license_number || null, 
-              is_available: true 
-            };
-            
-            const { data: newVet, error: insertError } = await supabase
-              .from('veterinarians')
-              .upsert(insertPayload, { onConflict: 'user_id' })
-              .select()
-              .single();
-              
-            if (insertError) {
-              // If we get a conflict error, it means the record was created by another process
-              if (insertError.code === '23505') { // Unique violation
-                console.log('Veterinarian record already exists, fetching again');
-                const { data: existingVet, error: fetchError } = await supabase
-                  .from('veterinarians')
-                  .select('id,user_id,full_name,is_available,license_number')
-                  .eq('user_id', p.id)
-                  .order('id', { ascending: false })
-                  .limit(1)
-                  .maybeSingle();
-                  
-                if (fetchError) {
-                  console.error('Error fetching veterinarian after conflict:', fetchError);
-                  throw fetchError;
-                }
-                
-                v = existingVet;
-              } else {
-                console.error('Error creating veterinarian profile:', insertError);
-                throw insertError;
-              }
-            } else {
-              v = newVet;
-            }
-          } catch (error) {
-            console.error('Error in veterinarian profile creation:', error);
-            // Don't throw here, we'll handle the case where v is still null below
-          }
+          console.warn('Veterinarian profile not found for user:', p.id);
+          await Swal.fire({ 
+            icon: "warning", 
+            title: "Profile Not Found", 
+            text: "Your veterinarian profile could not be loaded. Please contact support." 
+          });
+          setVet(null);
+          setLoading(false);
+          return;
         }
+        
         setVet(v as Vet);
         setName((v as any)?.full_name || p.full_name || "");
         setPhone(p.phone || "");

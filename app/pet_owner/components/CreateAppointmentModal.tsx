@@ -79,7 +79,10 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
         
         if (vetsError) throw vetsError;
         
+        console.log(`[Vet Fetch] Clinic ID: ${clinicId}, Found ${vetsData?.length || 0} vets`);
+        
         if (!Array.isArray(vetsData) || vetsData.length === 0) {
+          console.log(`[Vet Fetch] No vets found for clinic ${clinicId}`);
           setVets([]);
           setVeterinarianId("");
           return;
@@ -90,32 +93,43 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
           .map(v => v.user_id)
           .filter((id): id is string => !!id);
         
-        if (userIds.length === 0) {
-          setVets([]);
-          setVeterinarianId("");
-          return;
+        console.log(`[Vet Fetch] User IDs to check: ${userIds.length}`);
+        
+        let profileMap: Record<string, any> = {};
+        
+        if (userIds.length > 0) {
+          const { data: profiles, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id,verification_status,is_active')
+            .in('id', userIds);
+          
+          if (profilesError) throw profilesError;
+          
+          console.log(`[Vet Fetch] Fetched ${profiles?.length || 0} profiles for ${userIds.length} user IDs`);
+          
+          // Create a map of profile data by user_id
+          (profiles || []).forEach(p => {
+            profileMap[p.id] = p;
+            console.log(`[Vet Fetch] Profile ${p.id}: status=${p.verification_status}, active=${p.is_active}`);
+          });
         }
         
-        const { data: profiles, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id,verification_status,is_active')
-          .in('id', userIds);
-        
-        if (profilesError) throw profilesError;
-        
-        // Create a map of profile data by user_id
-        const profileMap: Record<string, any> = {};
-        (profiles || []).forEach(p => {
-          profileMap[p.id] = p;
-        });
-        
-        // Filter vets based on their profile status
+        // Filter vets - include those with valid profiles
+        // Note: Vets without user_id are skipped as they're incomplete records
         const list: Vet[] = vetsData
           .filter(row => {
+            // If vet has no user_id, it's an incomplete record - skip it
+            if (!row.user_id) {
+              console.log(`[Vet Fetch] Vet ${row.id} (${row.full_name}): SKIPPED - missing user_id in database`);
+              return false;
+            }
+            
             const profile = profileMap[row.user_id];
-            return profile && 
+            const isValid = profile && 
                    profile.verification_status === 'approved' && 
                    profile.is_active === true;
+            console.log(`[Vet Fetch] Vet ${row.id} (${row.full_name}): profile_exists=${!!profile}, status=${profile?.verification_status}, active=${profile?.is_active}, valid=${isValid}`);
+            return isValid;
           })
           .map(row => ({
             id: row.id as number,
@@ -125,6 +139,7 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
             is_active: profileMap[row.user_id]?.is_active ?? null,
           }));
         
+        console.log(`[Vet Fetch] Final list: ${list.length} valid vets`);
         setVets(list);
         if (list.length === 0) {
           setVeterinarianId("");
