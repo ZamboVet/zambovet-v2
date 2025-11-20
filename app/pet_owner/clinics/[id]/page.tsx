@@ -1,17 +1,17 @@
 "use client";
 
-import { useEffect, useState, use as usePromise } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../../../../lib/supabaseClient";
 import { BuildingOffice2Icon, MapPinIcon, PhoneIcon, ArrowLeftIcon, ArrowTopRightOnSquareIcon, UserIcon } from "@heroicons/react/24/outline";
+import Swal from "sweetalert2";
 
 type Clinic = { id: number; name: string; address: string | null; phone: string | null; latitude?: number | null; longitude?: number | null };
 
 type Vet = { id: number; full_name: string };
 
-export default function ClinicDetailsPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = usePromise(params);
-  const clinicId = Number(id);
+export default function ClinicDetailsPage({ params }: { params: { id: string } }) {
+  const clinicId = Number(params.id);
   const [clinic, setClinic] = useState<Clinic | null>(null);
   const [vets, setVets] = useState<Vet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +27,9 @@ export default function ClinicDetailsPage({ params }: { params: Promise<{ id: st
           .eq("id", clinicId)
           .maybeSingle();
         setClinic((c as any) || null);
+      } catch (e: any) {
+        await Swal.fire({ icon: 'error', title: 'Failed to load clinic', text: e?.message || 'Please try again.' });
+        setClinic(null);
       } finally {
         setLoading(false);
       }
@@ -39,7 +42,10 @@ export default function ClinicDetailsPage({ params }: { params: Promise<{ id: st
           .gte("appointment_date", today);
         const vetIds = Array.from(new Set(((appts || []) as any[]).map(a => a.veterinarian_id).filter(Boolean)));
         if (vetIds.length) {
-          const { data: vRows } = await supabase.from("veterinarians").select("id,full_name").in("id", vetIds);
+          const { data: vRows } = await supabase
+            .from("veterinarians")
+            .select("id,full_name")
+            .in("id", vetIds);
           setVets((vRows || []) as any);
         } else {
           setVets([]);

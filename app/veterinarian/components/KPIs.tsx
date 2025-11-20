@@ -24,7 +24,7 @@ export default function KPIs({ today, pending, confirmed, rating, primary }: Pro
         primary={primary}
       />
       <Card
-        title="Pending Reviews"
+        title="Pending Appointments"
         value={pending}
         icon={<ClockIcon className="w-6 h-6" />}
         dotClass="bg-amber-500"

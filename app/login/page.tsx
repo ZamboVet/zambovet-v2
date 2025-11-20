@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import Swal from "sweetalert2";
 import { supabase } from "../../lib/supabaseClient";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import ForgotPasswordModal from "../components/ForgotPasswordModal";
 import { getSiteUrl } from "../../lib/utils/site";
 
@@ -14,8 +14,9 @@ const SITE_URL = getSiteUrl();
 const PRIMARY = "#0032A0";
 const SECONDARY = "#b3c7e6";
 
-export default function LoginPage() {
+function LoginInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
@@ -24,19 +25,80 @@ export default function LoginPage() {
   const [mounted, setMounted] = useState(false);
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
 
-  // Helper to create profile if missing and route accordingly
-  const ensureProfileAndRoute = async (user: any) => {
+  // Helpers: safe redirects and unified post-auth routing
+  const getDefaultRoute = (role?: string | null) => {
+    if (role === 'admin') return '/admin';
+    if (role === 'veterinarian') return '/veterinarian';
+    if (role === 'pet_owner') return '/pet_owner';
+    return '/';
+  };
+  const isSafeInternalPath = (p: string) => {
+    if (!p || typeof p !== 'string') return false;
+    if (!p.startsWith('/')) return false;
+    if (p.startsWith('//')) return false;
+    if (/^https?:/i.test(p)) return false;
+    return true;
+  };
+  const roleAllowsPath = (role: string | null | undefined, p: string) => {
+    if (!role || !p) return false;
+    if (role === 'admin') return p === '/admin' || p.startsWith('/admin/');
+    if (role === 'veterinarian') return p === '/veterinarian' || p.startsWith('/veterinarian/');
+    if (role === 'pet_owner') return p === '/pet_owner' || p.startsWith('/pet_owner/');
+    return false;
+  };
+  const safeResolveRedirect = (role: string | null | undefined, redirectParam?: string | null) => {
+    const target = (redirectParam || '').trim();
+    if (isSafeInternalPath(target) && roleAllowsPath(role, target)) return target;
+    return getDefaultRoute(role || undefined);
+  };
+  const rejectionText = (reason?: string | null) => {
+    const base = 'Your application was rejected by the admin.';
+    return reason ? `${base} Reason: ${String(reason)}` : base;
+  };
+  const handlePostAuthRoute = async (user: any, redirectParam?: string | null) => {
+    // Ensure middleware-readable cookies are set for SSR-protected routes
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const access_token = sess?.session?.access_token || null;
+      const refresh_token = sess?.session?.refresh_token || null;
+      const expires_at = sess?.session?.expires_at || null; // epoch seconds
+      const expires_in = expires_at ? Math.max(1, Math.floor(expires_at - Math.floor(Date.now()/1000))) : 3600;
+      if (access_token && refresh_token) {
+        await fetch('/api/auth/set-cookie', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ access_token, refresh_token, expires_in }),
+          credentials: 'include',
+        });
+      }
+ 
+    } catch {}
+    // Load profile
     const { data: prof } = await supabase
       .from('profiles')
-      .select('user_role,verification_status,email')
+      .select('user_role,verification_status,is_active,email,phone')
       .eq('id', user.id)
       .maybeSingle();
 
-    if (prof?.user_role === 'admin') { router.replace('/admin'); return; }
-    if (prof?.user_role === 'veterinarian') { router.replace('/veterinarian'); return; }
-    if (prof?.user_role === 'pet_owner') { router.replace('/pet_owner'); return; }
+    // Existing, fully configured roles
+    if (prof?.user_role === 'admin') { router.replace(safeResolveRedirect('admin', redirectParam)); return; }
+    if (prof?.user_role === 'veterinarian') {
+      if (prof.verification_status !== 'approved') {
+        await Swal.fire({ icon:'info', title:'Application under review', text:'Your veterinarian account is pending admin approval.' });
+        try { await supabase.auth.signOut(); } catch {}
+        return;
+      }
+      if (prof.is_active === false) {
+        await Swal.fire({ icon:'info', title:'Account inactive', text:'Your veterinarian account is inactive. Please contact the administrator.' });
+        try { await supabase.auth.signOut(); } catch {}
+        return;
+      }
+      router.replace(safeResolveRedirect('veterinarian', redirectParam));
+      return;
+    }
+    if (prof?.user_role === 'pet_owner') { router.replace(safeResolveRedirect('pet_owner', redirectParam)); return; }
 
-    // Check vet application by email; if pending or rejected, handle; otherwise auto-provision pet owner
+    // No role on profile – determine application state by email
     const emailToUse = (prof as any)?.email || user.email || '';
     let appStatus: string | null = null;
     let appReason: string | null = null;
@@ -55,7 +117,7 @@ export default function LoginPage() {
     } catch {}
 
     if (appStatus === 'rejected') {
-      await Swal.fire({ icon:'error', title:'Application rejected', html: appReason ? `<div style='text-align:left'><b>Reason</b>: ${appReason}</div>` : undefined });
+      await Swal.fire({ icon:'error', title:'Application rejected', text: rejectionText(appReason) });
       try { await supabase.auth.signOut(); } catch {}
       return;
     }
@@ -83,7 +145,7 @@ export default function LoginPage() {
       await Swal.fire({ icon:'error', title:'Login failed', text: err?.message || 'Unable to create your profile.' });
       return;
     }
-    router.replace('/pet_owner');
+    router.replace(safeResolveRedirect('pet_owner', redirectParam));
   };
 
   // If already signed in (e.g., after OAuth redirect), ensure profile and route
@@ -98,8 +160,8 @@ export default function LoginPage() {
         const { data } = await supabase.auth.getUser();
         const user = data.user;
         if (!user || !isMounted) return;
-        
-        await ensureProfileAndRoute(user);
+        const redirectParam = searchParams?.get('redirect');
+        await handlePostAuthRoute(user, redirectParam);
       } catch (e: any) {
         if (!isMounted) return;
         const msg = (e?.message || "").toString();
@@ -135,155 +197,9 @@ export default function LoginPage() {
         setLoading(false);
         return;
       }
-      const { data: prof, error: pErr } = await supabase
-        .from("profiles")
-        .select("user_role,verification_status,is_active,email,phone")
-        .eq("id", user.id)
-        .maybeSingle();
-      if (pErr) throw pErr;
-      // If profile is missing, role unset, or vet is pending, consult application status
-      if (!prof || !(prof as any).user_role || ((prof as any).user_role === 'veterinarian' && (prof as any).verification_status === 'pending')) {
-        // Look up veterinarian application by email to confirm vet state
-        const emailToUse = (prof as any)?.email || user.email || '';
-        let appStatus: string | null = null;
-        let appReason: string | null = null;
-        let appFullName: string | null = null;
-        let appPhone: string | null = null;
-        try {
-          if (emailToUse) {
-            const { data: apps } = await supabase
-              .from('veterinarian_applications')
-              .select('status,rejection_reason,full_name,phone,created_at')
-              .ilike('email', emailToUse)
-              .order('created_at', { ascending: false })
-              .limit(1);
-            const app = Array.isArray(apps) ? apps[0] : null;
-            appStatus = app?.status || null;
-            appReason = (app as any)?.rejection_reason || null;
-            appFullName = (app as any)?.full_name || null;
-            appPhone = (app as any)?.phone || null;
-          }
-        } catch {}
-        // If profile exists but phone is missing and app has phone, backfill
-        if (prof && !prof.phone && appPhone) {
-          try { await supabase.from('profiles').update({ phone: appPhone }).eq('id', user.id); } catch {}
-        }
-        // If admin has approved the vet and profile is missing/unset, create profile now
-        if (appStatus === 'approved' && (!prof || !(prof as any).user_role)) {
-          const payload = {
-            id: user.id,
-            email: emailToUse,
-            full_name: appFullName || user.user_metadata?.full_name || '',
-            phone: appPhone || null,
-            user_role: 'veterinarian',
-            verification_status: 'approved' as const,
-          };
-          const { error: upErr } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' });
-          if (upErr) {
-            await Swal.fire({ icon: 'error', title: 'Login failed', text: upErr.message || 'Unable to finalize your profile.' });
-            setLoading(false);
-            return;
-          }
-          // Reload prof
-          const { data: prof2 } = await supabase
-            .from('profiles')
-            .select('user_role,verification_status,is_active,email')
-            .eq('id', user.id)
-            .maybeSingle();
-          if (prof2) {
-            await Swal.fire({ icon: 'success', title: 'Signed in', confirmButtonColor: '#2563eb' });
-            if (prof2.user_role === 'admin') router.replace('/admin');
-            else if (prof2.user_role === 'veterinarian') router.replace('/veterinarian');
-            else if (prof2.user_role === 'pet_owner') router.replace('/pet_owner');
-            else router.replace('/');
-            return;
-          }
-        }
-        if (appStatus === 'rejected') {
-          await Swal.fire({
-            icon: 'error',
-            title: 'Application rejected',
-            html: appReason ? `<div style='text-align:left'>Your application was rejected by the admin.<br/><br/><b>Reason</b>: ${appReason}</div>` : 'Your application was rejected by the admin.',
-            confirmButtonText: 'OK'
-          });
-          try { await supabase.auth.signOut(); } catch {}
-          setLoading(false);
-          return;
-        }
-        if (appStatus === 'pending') {
-          await Swal.fire({
-            icon: 'info',
-            title: 'Application under review',
-            text: 'Your veterinarian account is pending admin approval. We will notify you once it is approved.',
-            confirmButtonText: 'OK'
-          });
-          try { await supabase.auth.signOut(); } catch {}
-          setLoading(false);
-          return;
-        }
-        // No vet application: auto-provision as pet owner for OAuth sign-in
-        if (!prof || !(prof as any).user_role) {
-          const payload = {
-            id: user.id,
-            email: user.email || emailToUse,
-            full_name: (user.user_metadata as any)?.full_name || user.email || '',
-            user_role: 'pet_owner' as const,
-            verification_status: 'approved' as const,
-          };
-          try {
-            await supabase.from('profiles').upsert(payload, { onConflict: 'id' });
-            const { data: existingPO } = await supabase.from('pet_owner_profiles').select('id').eq('user_id', user.id).maybeSingle();
-            if (!existingPO) {
-              await supabase.from('pet_owner_profiles').insert({ user_id: user.id, full_name: payload.full_name });
-            }
-          } catch (autoErr: any) {
-            await Swal.fire({ icon: 'error', title: 'Login failed', text: autoErr?.message || 'Unable to create your profile.' });
-            setLoading(false);
-            return;
-          }
-          await Swal.fire({ icon: 'success', title: 'Signed in', confirmButtonColor: '#2563eb' });
-          router.replace('/pet_owner');
-          return;
-        }
-      }
-      if (prof?.verification_status === 'rejected') {
-        const emailToUse = (prof as any)?.email || user.email || '';
-        let appReason: string | null = null;
-        try {
-          if (emailToUse) {
-            const { data: apps } = await supabase
-              .from('veterinarian_applications')
-              .select('rejection_reason,created_at')
-              .ilike('email', emailToUse)
-              .order('created_at', { ascending: false })
-              .limit(1);
-            const app = Array.isArray(apps) ? apps[0] : null;
-            appReason = (app as any)?.rejection_reason || null;
-          }
-        } catch {}
-        await Swal.fire({
-          icon: 'error',
-          title: 'Your account has been rejected',
-          html: appReason ? `<div style='text-align:left'><b>Reason</b>: ${appReason}</div>` : undefined,
-        });
-        try { await supabase.auth.signOut(); } catch {}
-        setLoading(false);
-        return;
-      }
-      await Swal.fire({ icon: "success", title: "Signed in", confirmButtonColor: "#2563eb" });
-      if (prof?.user_role === "admin") router.replace("/admin");
-      else if (prof?.user_role === "veterinarian") router.replace("/veterinarian");
-      else if (prof?.user_role === "pet_owner") router.replace("/pet_owner");
-      else {
-        const res = await Swal.fire({
-          icon: "info",
-          title: "Complete your profile",
-          text: "We couldn't determine your role. Please complete signup to continue.",
-          confirmButtonText: "Go to Sign up",
-          showCancelButton: true,
-        });
-        if (res.isConfirmed) router.replace("/signup");
-      }
+      const redirectParam = searchParams?.get('redirect');
+      await handlePostAuthRoute(user, redirectParam);
+      return;
     } catch (err: any) {
       await Swal.fire({ icon: "error", title: "Login failed", text: err?.message || "Please try again." });
     } finally {
@@ -418,5 +334,13 @@ export default function LoginPage() {
         onClose={() => setForgotPasswordOpen(false)}
       />
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginInner />
+    </Suspense>
   );
 }

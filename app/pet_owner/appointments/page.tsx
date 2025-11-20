@@ -6,6 +6,7 @@ import { supabase } from "../../../lib/supabaseClient";
 import { CalendarDaysIcon, PlusIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import CreateAppointmentModal from "../components/CreateAppointmentModal";
 import ReviewModal from "../components/ReviewModal";
+import { localISODate } from "../../../lib/utils/time";
 
  type Appointment = {
   id: number;
@@ -45,8 +46,10 @@ export default function OwnerAppointmentsPage() {
   useEffect(() => {
     setMounted(true);
     try {
-      const f = new Date().toISOString().slice(0,10);
-      const t = new Date(Date.now() + 30*86400000).toISOString().slice(0,10);
+      const f = localISODate();
+      const now = new Date();
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 30);
+      const t = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       setFromDate(f);
       setToDate(t);
     } catch {}
@@ -111,36 +114,22 @@ export default function OwnerAppointmentsPage() {
     fetchList();
   }, [ownerId, status, query, fromDate, toDate, page]);
 
-  // Realtime refresh
+  // Reset pagination when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [status, query, fromDate, toDate]);
+
+  // Realtime: simplify to reset pagination and let fetchList run
   useEffect(() => {
     if (!ownerId) return;
     const ch = supabase
-      .channel("owner-appts-" + ownerId)
+      .channel("appointments-owner-" + ownerId)
       .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `pet_owner_id=eq.${ownerId}` }, () => {
-        // re-fetch with current filters
-        (async () => {
-          try {
-            const from = 0;
-            const to = page * PAGE_SIZE - 1;
-            let q = supabase
-              .from("appointments")
-              .select("id,appointment_date,appointment_time,status,reason_for_visit,clinic_id,pet_owner_id,patient_id,veterinarian_id")
-              .eq("pet_owner_id", ownerId)
-              .gte("appointment_date", fromDate)
-              .lte("appointment_date", toDate)
-              .order("appointment_date", { ascending: true })
-              .order("appointment_time", { ascending: true })
-              .range(from, to);
-            if (status !== "all") q = q.eq("status", status);
-            if (query.trim()) q = q.ilike("reason_for_visit", `%${query.trim()}%`);
-            const { data } = await q;
-            setItems((data || []) as Appointment[]);
-          } catch {}
-        })();
+        setPage(1);
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [ownerId, status, query, fromDate, toDate, page]);
+  }, [ownerId]);
 
   // Infinite scroll observer
   useEffect(() => {
@@ -155,17 +144,6 @@ export default function OwnerAppointmentsPage() {
     io.observe(el);
     return () => io.disconnect();
   }, [hasMore, loading, viewMode]);
-
-  // realtime auto-refresh
-  useEffect(() => {
-    if (!ownerId) return;
-    const ch = supabase.channel("appointments-owner-" + ownerId)
-      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `pet_owner_id=eq.${ownerId}` }, () => {
-        setPage(1);
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [ownerId]);
 
   const [petsMap, setPetsMap] = useState<Record<number, Pet>>({});
   const [vetsMap, setVetsMap] = useState<Record<number, Vet>>({});
@@ -290,6 +268,12 @@ export default function OwnerAppointmentsPage() {
         </div>
       </div>
 
+      {ownerId === null && (
+        <div className="rounded-lg sm:rounded-xl bg-amber-50 text-amber-800 ring-1 ring-amber-200 px-3 sm:px-4 py-2 text-xs sm:text-sm">
+          Please complete your profile to continue booking and managing appointments. <a href="/pet_owner/settings" className="underline font-medium">Go to Settings</a>
+        </div>
+      )}
+
       {/* Toolbar chips */}
       <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2">
         <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 text-xs sm:text-sm min-w-0">
@@ -299,7 +283,7 @@ export default function OwnerAppointmentsPage() {
             <option value="pending">Pending</option>
             <option value="confirmed">Confirmed</option>
             <option value="completed">Completed</option>
-            <option value="cancelled">Canceled</option>
+            <option value="cancelled">Cancelled</option>
           </select>
         </div>
         <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 text-[10px] sm:text-xs md:text-sm flex-1 sm:flex-none min-w-0">
@@ -385,7 +369,7 @@ export default function OwnerAppointmentsPage() {
                     <div className="text-[10px] sm:text-xs md:text-sm text-gray-600 line-clamp-2 mt-1"><span className="font-medium">Reason:</span> {a.reason_for_visit || "Consultation"}</div>
                   </div>
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 sm:gap-2 w-full sm:w-auto flex-shrink-0">
-                    <span className={`px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[11px] md:text-xs font-medium text-center whitespace-nowrap ${a.status === "confirmed" ? "bg-emerald-100 text-emerald-700" : a.status === "pending" ? "bg-amber-100 text-amber-700" : a.status === "completed" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}>{a.status === 'cancelled' ? 'canceled' : a.status}</span>
+                    <span className={`px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[11px] md:text-xs font-medium text-center whitespace-nowrap ${a.status === "confirmed" ? "bg-emerald-100 text-emerald-700" : a.status === "pending" ? "bg-amber-100 text-amber-700" : a.status === "completed" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}>{a.status === 'cancelled' ? 'cancelled' : a.status}</span>
                     <div className="flex gap-1.5 sm:gap-2 w-full sm:w-auto">
                       {consultByAppt[a.id] && (
                         <button onClick={()=>viewConsultation(a)} className="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-[10px] sm:text-[11px] md:text-sm font-medium transition active:scale-95 whitespace-nowrap">View</button>
@@ -405,7 +389,7 @@ export default function OwnerAppointmentsPage() {
                         <button onClick={async ()=> {
                           const res = await Swal.fire({ icon:'question', title:'Cancel?', showCancelButton:true, confirmButtonText:'Yes', confirmButtonColor:'#dc2626' });
                           if (!res.isConfirmed) return;
-                          const { error } = await supabase.from('appointments').update({ status:'cancelled' }).eq('id', a.id);
+                          const { error } = await supabase.from('appointments').update({ status:'cancelled' }).eq('id', a.id).eq('pet_owner_id', ownerId as number);
                           if (error) { await Swal.fire({ icon:'error', title:'Failed', text:error.message }); return; }
                           setItems(prev => prev.map(it => it.id===a.id ? { ...it, status:'cancelled' } : it));
                           try { await supabase.from('notifications').insert({ title:'Appointment cancelled', message:`Appointment #${a.id} on ${a.appointment_date} • ${a.appointment_time}`, related_appointment_id: a.id, notification_type:'system' }); } catch {}
@@ -435,7 +419,7 @@ export default function OwnerAppointmentsPage() {
                                 if (!date || !time) { Swal.showValidationMessage('Date and time are required'); return; }
                                 const pd = date.split('-').map(Number);
                                 const pt = time.split(':').map(Number);
-                                const dt = new Date(Date.UTC(pd[0], (pd[1]||1)-1, pd[2]||1, pt[0]||0, pt[1]||0, 0));
+                                const dt = new Date(pd[0] || 1970, (pd[1]||1)-1, pd[2]||1, pt[0]||0, pt[1]||0, 0);
                                 const min = Date.now() + 30*60*1000; // 30 minutes from now
                                 if (dt.getTime() < min) { Swal.showValidationMessage('Please choose a time at least 30 minutes from now'); return; }
                                 return { date, time } as any;
@@ -458,7 +442,7 @@ export default function OwnerAppointmentsPage() {
                             }
                             if (cErr) { await Swal.fire({ icon:'error', title:'Failed', text:cErr.message }); return; }
                             if ((conflicts?.length || 0) > 0) { await Swal.fire({ icon:'warning', title:'Conflict', text:'This time is not available.' }); return; }
-                            const { error } = await supabase.from('appointments').update({ appointment_date: form.date, appointment_time: form.time }).eq('id', a.id);
+                            const { error } = await supabase.from('appointments').update({ appointment_date: form.date, appointment_time: form.time }).eq('id', a.id).eq('pet_owner_id', ownerId as number);
                             if (error) { await Swal.fire({ icon:'error', title:'Failed', text:error.message }); return; }
                             setItems(prev => prev.map(it => it.id===a.id ? { ...it, appointment_date: form.date, appointment_time: form.time } : it));
                             try { await supabase.from('notifications').insert({ title:'Appointment rescheduled', message:`Appointment #${a.id} → ${form.date} • ${form.time}`, related_appointment_id: a.id, notification_type:'system' }); } catch {}

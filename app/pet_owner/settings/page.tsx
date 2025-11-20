@@ -6,6 +6,7 @@ import { supabase } from "../../../lib/supabaseClient";
 import { swalConfirmColor } from "../../../lib/ui/tokens";
 import { CheckCircleIcon, IdentificationIcon, BellAlertIcon, ShieldCheckIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 import { getSiteUrl } from "../../../lib/utils/site";
+import { sanitizeName, validateName, sanitizeAddress, validateAddress, sanitizePhone, validatePhone } from "../../../lib/utils/validation";
 
 const SITE_URL = getSiteUrl();
 
@@ -20,6 +21,9 @@ export default function OwnerSettingsPage() {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [addressError, setAddressError] = useState<string | null>(null);
 
   // auth user metadata preferences
   const [prefEmail, setPrefEmail] = useState(true);
@@ -62,8 +66,33 @@ export default function OwnerSettingsPage() {
     })();
   }, []);
 
+  useEffect(() => {
+    const n = validateName(fullName);
+    setNameError(n.ok ? null : n.error || null);
+  }, [fullName]);
+
+  useEffect(() => {
+    const p = validatePhone(phone);
+    setPhoneError(p.ok ? null : p.error || null);
+  }, [phone]);
+
+  useEffect(() => {
+    const a = validateAddress(address);
+    setAddressError(a.ok ? null : a.error || null);
+  }, [address]);
+
   const saveProfile = async () => {
     if (!ownerId) return;
+    const n = validateName(fullName);
+    const p = validatePhone(phone);
+    const a = validateAddress(address);
+    setNameError(n.ok ? null : n.error || null);
+    setPhoneError(p.ok ? null : p.error || null);
+    setAddressError(a.ok ? null : a.error || null);
+    if (!n.ok || !p.ok || !a.ok) {
+      await Swal.fire({ icon: "warning", title: "Please fix the errors", text: n.error || p.error || a.error || "Invalid fields.", confirmButtonColor: swalConfirmColor });
+      return;
+    }
     setSaving(true);
     try {
       const { error } = await supabase
@@ -345,19 +374,37 @@ export default function OwnerSettingsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
               <label className="block text-xs sm:text-sm text-neutral-600 mb-1">Full name</label>
-              <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-neutral-200 outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm" />
+              <input
+                value={fullName}
+                onChange={(e) => setFullName(sanitizeName(e.target.value))}
+                className="w-full px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-neutral-200 outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
+              />
+              {nameError && <div className="mt-1 text-[11px] sm:text-xs text-red-600">{nameError}</div>}
             </div>
             <div>
               <label className="block text-xs sm:text-sm text-neutral-600 mb-1">Phone</label>
-              <input value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-neutral-200 outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm" />
+              <input
+                value={phone}
+                onChange={(e) => setPhone(sanitizePhone(e.target.value))}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={11}
+                className="w-full px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-neutral-200 outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
+              />
+              {phoneError && <div className="mt-1 text-[11px] sm:text-xs text-red-600">{phoneError}</div>}
             </div>
             <div className="sm:col-span-2">
               <label className="block text-xs sm:text-sm text-neutral-600 mb-1">Address</label>
-              <input value={address} onChange={(e) => setAddress(e.target.value)} className="w-full px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-neutral-200 outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm" />
+              <input
+                value={address}
+                onChange={(e) => setAddress(sanitizeAddress(e.target.value))}
+                className="w-full px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-neutral-200 outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
+              />
+              {addressError && <div className="mt-1 text-[11px] sm:text-xs text-red-600">{addressError}</div>}
             </div>
           </div>
           <div className="flex items-center justify-end gap-2 sm:gap-3">
-            <button disabled={saving || loading} onClick={saveProfile} className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-blue-600 text-white hover:bg-blue-700 text-xs sm:text-sm font-medium disabled:opacity-60 active:scale-95">Save Profile</button>
+            <button disabled={saving || loading || !!nameError || !!phoneError || !!addressError} onClick={saveProfile} className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-blue-600 text-white hover:bg-blue-700 text-xs sm:text-sm font-medium disabled:opacity-60 active:scale-95">Save Profile</button>
           </div>
         </section>
 
