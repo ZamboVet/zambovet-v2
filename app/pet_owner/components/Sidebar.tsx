@@ -118,8 +118,9 @@ export function Sidebar() {
           const { count: uc } = await supabase
             .from("appointments")
             .select("id", { count: "exact", head: true })
-            .eq("owner_id", ownerId)
-            .in("status", ["scheduled", "confirmed"]).gte("date", new Date().toISOString());
+            .eq("pet_owner_id", ownerId)
+            .in("status", ["pending", "confirmed"])
+            .gte("appointment_date", new Date().toISOString().slice(0, 10));
           setUpcomingCount(typeof uc === "number" ? uc : null);
         }
         // Set avatar into localStorage for quick access by header if needed

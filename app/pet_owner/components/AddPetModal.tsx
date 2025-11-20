@@ -155,6 +155,16 @@ export default function AddPetModal({ ownerId, open, onClose, onCreated }: AddPe
 
   const chooseFile = () => fileRef.current?.click();
 
+  const sanitizeText = (s: string, max: number) =>
+    s.replace(/[<>]/g, "").replace(/\s+/g, " ").trim().slice(0, max);
+  const todayLocalISO = () => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
   const applyCrop = () => {
     if (!cropperRef.current || !cropImageRef.current || !canvasRef.current) return;
     
@@ -185,10 +195,47 @@ export default function AddPetModal({ ownerId, open, onClose, onCreated }: AddPe
   };
 
   const handleSubmit = async () => {
-    if (!name.trim() || !species.trim()) {
+    const nameS = sanitizeText(name, 80);
+    const speciesS = sanitizeText(species, 40);
+    const breedS = sanitizeText(breed, 120);
+    const dobS = dob || "";
+    let weightNum: number | null = null;
+    if (weight) {
+      const w = Number(weight);
+      if (!isFinite(w) || w < 0 || w > 200) {
+        await Swal.fire({ icon: "warning", title: "Invalid weight", text: "Weight must be between 0 and 200 kg." });
+        return;
+      }
+      weightNum = Number(w.toFixed(1));
+    }
+    if (!nameS || !speciesS) {
       Swal.fire({ icon: "warning", title: "Missing info", text: "Please provide pet name and species.", confirmButtonColor: "#2563eb" });
       return;
     }
+    if (dobS) {
+      const max = todayLocalISO();
+      if (dobS > max) {
+        await Swal.fire({ icon: "warning", title: "Invalid date", text: "Birthdate cannot be in the future." });
+        return;
+      }
+    }
+
+    // Duplicate check (case-insensitive exact match)
+    try {
+      const q = supabase
+        .from("patients")
+        .select("id")
+        .eq("owner_id", ownerId)
+        .eq("is_active", true)
+        .ilike("name", nameS)
+        .ilike("species", speciesS)
+        .limit(1);
+      const { data: dup } = await q;
+      if (Array.isArray(dup) && dup.length > 0) {
+        await Swal.fire({ icon: "info", title: "Duplicate pet", text: "You already have an active pet with the same name and species." });
+        return;
+      }
+    } catch {}
 
     setSubmitting(true);
     let profileUrl: string | null = null;
@@ -201,18 +248,19 @@ export default function AddPetModal({ ownerId, open, onClose, onCreated }: AddPe
           // If bucket missing or upload fails, continue without image
         } else {
           const { data: pub } = supabase.storage.from("pet-images").getPublicUrl(uploaded?.path || path);
-          profileUrl = pub?.publicUrl || null;
+          const url = pub?.publicUrl || null;
+          profileUrl = url && /^https?:\/\//i.test(url) ? url : null;
         }
       }
 
       const payload: any = {
         owner_id: ownerId,
-        name: name.trim(),
-        species: species.trim(),
-        breed: breed.trim() || null,
+        name: nameS,
+        species: speciesS,
+        breed: breedS || null,
         gender: gender || null,
-        date_of_birth: dob || null,
-        weight: weight ? Number(weight) : null,
+        date_of_birth: dobS || null,
+        weight: weightNum,
         profile_picture_url: profileUrl,
         is_active: true,
       };

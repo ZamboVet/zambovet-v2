@@ -10,6 +10,21 @@ const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600", "700
 const PRIMARY = "#2563eb";
 const SECONDARY = "#e5e7eb";
 
+// Standardized dropdown options (PH context)
+const CATEGORY_OPTIONS = [
+  'Small Animal', 'Large Animal', 'Mixed Practice', 'Equine', 'Poultry', 'Swine', 'Ruminant',
+  'Exotic/Wildlife', 'Aquatic', 'Laboratory Animal', 'Public Health', 'Academic/Research', 'Regulatory'
+];
+const SPECIALIZATION_OPTIONS = [
+  'General Practice', 'Surgery', 'Internal Medicine', 'Dermatology', 'Dentistry', 'Ophthalmology',
+  'Orthopedics', 'Cardiology', 'Neurology', 'Oncology', 'Emergency & Critical Care', 'Anesthesiology',
+  'Radiology/Imaging', 'Theriogenology (Reproduction)', 'Nutrition', 'Behavior', 'Epidemiology',
+  'Pathology', 'Pharmacology', 'Microbiology', 'Parasitology', 'Preventive Medicine', 'Zoonoses',
+  'Aquaculture Health', 'Food Safety', 'Animal Welfare'
+];
+const CLASSIFICATION_LEVEL_OPTIONS = ['Junior', 'Associate', 'Senior', 'Consultant', 'Resident', 'Fellow'];
+const LICENSE_TYPE_OPTIONS = ['PRC', 'Provisional', 'Special Temporary Permit (STP)'];
+
 type Profile = { id: string; email: string; full_name: string | null; phone: string | null; user_role: string; verification_status: string };
 type Vet = { id: number; user_id: string; full_name: string; is_available: boolean; license_number: string | null };
 type VetApp = { id:number; email:string; business_permit_url:string|null; professional_license_url:string|null; government_id_url:string|null; status:string; full_name?: string | null; created_at?: string };
@@ -34,6 +49,50 @@ export default function VetSettingsPage() {
   const [vetSpecialization, setVetSpecialization] = useState("");
   const [classificationLevel, setClassificationLevel] = useState("");
   const [licenseType, setLicenseType] = useState("");
+  const [nameTouched, setNameTouched] = useState(false);
+  const [phoneTouched, setPhoneTouched] = useState(false);
+
+  const sanitizeName = (s: string) => {
+    const nf = (s || "").normalize('NFKC');
+    const cleaned = nf.replace(/[^A-Za-zÀ-ÿ .\-']/g, "");
+    const collapsed = cleaned.replace(/\s+/g, " ");
+    return collapsed.trim().slice(0, 120);
+  };
+  const isNameValid = (s: string) => !!s && s.length >= 2 && /[A-Za-zÀ-ÿ]/.test(s);
+  const sanitizePhone = (s: string) => {
+    const raw = String(s || "");
+    const keep = raw.replace(/[^0-9+]/g, "");
+    const fixed = keep.replace(/(?!^)[+]/g, "");
+    return fixed.slice(0, 20);
+  };
+  const isPhoneValid = (s: string) => {
+    if (!s) return true;
+    return /^(\+639\d{9}|09\d{9})$/.test(s);
+  };
+  const sanitizeSimple = (s: string, max = 60) => {
+    const nf = (s || "").normalize('NFKC');
+    const cleaned = nf.replace(/[^A-Za-z0-9 .,/\-()&+:#]/g, "");
+    const collapsed = cleaned.replace(/\s+/g, " ");
+    return collapsed.trim().slice(0, max);
+  };
+  const validateFile = (f: File | null) => {
+    if (!f) return "";
+    const allowed = [
+      'application/pdf',
+      'image/png',
+      'image/jpeg',
+      'image/jpg',
+      'image/webp',
+    ];
+    const max = 5 * 1024 * 1024;
+    if (!allowed.includes(f.type)) return 'Only PDF or image files (PNG, JPG, WEBP) are allowed.';
+    if (f.size > max) return 'File too large. Maximum size is 5MB.';
+    return "";
+  };
+
+  const nameInvalid = nameTouched && !isNameValid(name);
+  const phoneInvalid = phoneTouched && !!phone && !isPhoneValid(phone);
+  const invalidProfile = !isNameValid(name) || (!!phone && !isPhoneValid(phone));
 
   useEffect(() => {
     const init = async () => {
@@ -166,8 +225,20 @@ export default function VetSettingsPage() {
     if (!res.isConfirmed) return;
     setSaving(true);
     try {
-      const up1 = supabase.from("profiles").update({ full_name: name, phone }).eq("id", profile.id);
-      const up2 = supabase.from("veterinarians").update({ full_name: name, is_available: available }).eq("id", vet.id);
+      const fullName = sanitizeName(name);
+      const phoneSan = sanitizePhone(phone);
+      if (!isNameValid(fullName)) {
+        await Swal.fire({ icon: 'warning', title: 'Invalid name', text: 'Please enter your full name.' });
+        setSaving(false);
+        return;
+      }
+      if (phoneSan && !isPhoneValid(phoneSan)) {
+        await Swal.fire({ icon: 'warning', title: 'Invalid phone', text: 'Please enter a valid phone number.' });
+        setSaving(false);
+        return;
+      }
+      const up1 = supabase.from("profiles").update({ full_name: fullName, phone: phoneSan || null }).eq("id", profile.id);
+      const up2 = supabase.from("veterinarians").update({ full_name: fullName, is_available: available }).eq("id", vet.id);
       const [a, b] = await Promise.all([up1, up2]);
       if (a.error) throw a.error;
       if (b.error) throw b.error;
@@ -181,7 +252,11 @@ export default function VetSettingsPage() {
 
   const saveClassification = async () => {
     if (!profile || !vet) return;
-    if (!vetCategory.trim() || !classificationLevel.trim() || !licenseType.trim()) {
+    const cat = sanitizeSimple(vetCategory);
+    const spec = sanitizeSimple(vetSpecialization);
+    const level = sanitizeSimple(classificationLevel);
+    const ltype = sanitizeSimple(licenseType);
+    if (!cat || !level || !ltype) {
       await Swal.fire({ icon: 'warning', title: 'Missing required fields', text: 'Please fill Category, Classification Level, and License Type.' });
       return;
     }
@@ -189,10 +264,10 @@ export default function VetSettingsPage() {
     try {
       const payload = {
         vet_id: vet.id,
-        category: vetCategory.trim(),
-        specialization: vetSpecialization.trim() || null,
-        classification_level: classificationLevel.trim(),
-        license_type: licenseType.trim(),
+        category: cat,
+        specialization: spec || null,
+        classification_level: level,
+        license_type: ltype,
         updated_at: new Date().toISOString(),
       } as any;
       const { error } = await supabase
@@ -211,6 +286,14 @@ export default function VetSettingsPage() {
     if (!profile) return;
     if (!licenseFile && !permitFile && !govIdFile) {
       await Swal.fire({ icon: "info", title: "No files selected" });
+      return;
+    }
+    const err1 = validateFile(licenseFile);
+    const err2 = validateFile(permitFile);
+    const err3 = validateFile(govIdFile);
+    const firstErr = err1 || err2 || err3;
+    if (firstErr) {
+      await Swal.fire({ icon: 'warning', title: 'Invalid file', text: firstErr });
       return;
     }
     setSaving(true);
@@ -270,7 +353,7 @@ export default function VetSettingsPage() {
           <div className="text-xs text-gray-500">Dashboard / Settings</div>
           <h1 className="text-2xl font-bold" style={{ color: PRIMARY }}>Settings</h1>
         </div>
-        <button onClick={saveProfile} disabled={saving} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 w-full sm:w-auto">
+        <button onClick={saveProfile} disabled={saving || invalidProfile} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 w-full sm:w-auto">
           {saving ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : null}
           Save Changes
         </button>
@@ -282,13 +365,16 @@ export default function VetSettingsPage() {
           <div className="grid grid-cols-1 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Full Name</label>
-              <input value={name} onChange={(e) => setName(e.target.value)}
-                     className="w-full px-4 py-3 rounded-xl bg-white/90 ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 focus:outline-none" />
+              <input value={name} onChange={(e) => setName(sanitizeName(e.target.value))} onBlur={()=>setNameTouched(true)} aria-invalid={nameInvalid}
+                     maxLength={120} className="w-full px-4 py-3 rounded-xl bg-white/90 ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 focus:outline-none" />
+              {nameInvalid && (<p className="mt-1 text-xs text-red-600">Please enter your full name (min 2 letters).</p>)}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Phone</label>
-              <input value={phone} onChange={(e) => setPhone(e.target.value)}
+              <input value={phone} onChange={(e) => setPhone(sanitizePhone(e.target.value))} onBlur={()=>setPhoneTouched(true)} aria-invalid={phoneInvalid}
+                     maxLength={20} inputMode="tel" placeholder="+639XXXXXXXXX or 09XXXXXXXXX" pattern="(\+639\d{9}|09\d{9})"
                      className="w-full px-4 py-3 rounded-xl bg-white/90 ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 focus:outline-none" />
+              {phoneInvalid && (<p className="mt-1 text-xs text-red-600">Enter a valid PH number: +639XXXXXXXXX or 09XXXXXXXXX.</p>)}
             </div>
             <div className="flex items-center gap-3">
               <input id="availability" type="checkbox" checked={available} onChange={(e) => setAvailable(e.target.checked)}
@@ -303,19 +389,31 @@ export default function VetSettingsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Vet Category<span className="text-red-500">*</span></label>
-              <input value={vetCategory} onChange={(e)=>setVetCategory(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-white/90 ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 focus:outline-none" placeholder="e.g., Small Animal, Large Animal" />
+              <select value={vetCategory} onChange={(e)=>setVetCategory(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-white/90 ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 focus:outline-none">
+                <option value="">Select category</option>
+                {CATEGORY_OPTIONS.map(o => (<option key={o} value={o}>{o}</option>))}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Specialization</label>
-              <input value={vetSpecialization} onChange={(e)=>setVetSpecialization(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-white/90 ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 focus:outline-none" placeholder="e.g., Surgery, Dermatology" />
+              <select value={vetSpecialization} onChange={(e)=>setVetSpecialization(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-white/90 ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 focus:outline-none">
+                <option value="">Select specialization (optional)</option>
+                {SPECIALIZATION_OPTIONS.map(o => (<option key={o} value={o}>{o}</option>))}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Classification Level<span className="text-red-500">*</span></label>
-              <input value={classificationLevel} onChange={(e)=>setClassificationLevel(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-white/90 ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 focus:outline-none" placeholder="e.g., Junior, Senior, Consultant" />
+              <select value={classificationLevel} onChange={(e)=>setClassificationLevel(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-white/90 ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 focus:outline-none">
+                <option value="">Select level</option>
+                {CLASSIFICATION_LEVEL_OPTIONS.map(o => (<option key={o} value={o}>{o}</option>))}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">License Type<span className="text-red-500">*</span></label>
-              <input value={licenseType} onChange={(e)=>setLicenseType(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-white/90 ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 focus:outline-none" placeholder="e.g., PRC, Provisional" />
+              <select value={licenseType} onChange={(e)=>setLicenseType(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-white/90 ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 focus:outline-none">
+                <option value="">Select license type</option>
+                {LICENSE_TYPE_OPTIONS.map(o => (<option key={o} value={o}>{o}</option>))}
+              </select>
             </div>
           </div>
           <div className="mt-4">
@@ -398,7 +496,7 @@ export default function VetSettingsPage() {
           <div className="text-xs text-gray-600">Make sure your profile information and documents are accurate.</div>
           <div className="flex items-center gap-2">
             <button onClick={uploadDocs} disabled={saving} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white ring-1 ring-gray-200 hover:bg-gray-50 text-sm">Upload Docs</button>
-            <button onClick={saveProfile} disabled={saving} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60">
+            <button onClick={saveProfile} disabled={saving || invalidProfile} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60">
               {saving ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : null}
               Save Changes
             </button>

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { XMarkIcon, CalendarDaysIcon, HeartIcon } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import { supabase } from "../../../lib/supabaseClient";
-import { buildUtc, isAtLeastMinutesFromNow } from "../../../lib/utils/time";
+import { buildLocal, isAtLeastMinutesFromNow, localISODate } from "../../../lib/utils/time";
 
 export type CreateAppointmentModalProps = {
   open: boolean;
@@ -31,6 +31,8 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
   const [pets, setPets] = useState<Pet[]>([]);
   const [vets, setVets] = useState<Vet[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [vetsLoading, setVetsLoading] = useState(false);
+  const [vetsError, setVetsError] = useState<string | null>(null);
 
   const [patientId, setPatientId] = useState<number | "">("");
   const [veterinarianId, setVeterinarianId] = useState<number | "">("");
@@ -42,9 +44,28 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
 
   const reasonLeft = 200 - (reason?.length || 0);
 
+  const sanitizeReason = (s: string) => {
+    try {
+      const nf = s.normalize('NFKC');
+      const cleaned = nf.replace(/[^A-Za-z0-9 \t\n.,\-'/()&+:#?%!]/g, "");
+      const collapsed = cleaned.replace(/\s+/g, " ");
+      return collapsed.trim().slice(0, 200);
+    } catch {
+      return s.slice(0, 200);
+    }
+  };
+  const isReasonValid = (s: string) => {
+    if (!s) return false;
+    if (s.length < 3) return false;
+    if (!/[A-Za-z]/.test(s)) return false;
+    if (/^[^A-Za-z0-9]+$/.test(s)) return false;
+    if (/(.)\1\1\1/.test(s)) return false;
+    return true;
+  };
+
   useEffect(() => {
     // set on client after mount to avoid SSR/CSR mismatch
-    try { setToday(new Date().toISOString().slice(0,10)); } catch {}
+    try { setToday(localISODate()); } catch {}
   }, []);
 
   useEffect(() => {
@@ -70,76 +91,35 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
     const run = async () => {
       if (!open || !clinicId) return;
       try {
-        // Fetch veterinarians for the clinic with their profile data
+        setVetsLoading(true);
+        setVetsError(null);
+        // Fetch veterinarians for the clinic from vetted view (approved + active + available)
         const { data: vetsData, error: vetsError } = await supabase
-          .from('veterinarians')
-          .select('id,user_id,full_name')
+          .from('owner_visible_vets')
+          .select('id,user_id,full_name,clinic_id')
           .eq('clinic_id', clinicId as number)
           .order('full_name', { ascending: true });
         
         if (vetsError) throw vetsError;
         
-        console.log(`[Vet Fetch] Clinic ID: ${clinicId}, Found ${vetsData?.length || 0} vets`);
+        
         
         if (!Array.isArray(vetsData) || vetsData.length === 0) {
-          console.log(`[Vet Fetch] No vets found for clinic ${clinicId}`);
+          
           setVets([]);
           setVeterinarianId("");
           return;
         }
         
-        // Batch fetch all profiles at once for efficiency
-        const userIds = vetsData
-          .map(v => v.user_id)
-          .filter((id): id is string => !!id);
+        const list: Vet[] = (vetsData || []).map((row:any) => ({
+          id: row.id as number,
+          full_name: row.full_name as string,
+          user_id: (row.user_id as string) || "",
+          verification_status: null,
+          is_active: null,
+        }));
         
-        console.log(`[Vet Fetch] User IDs to check: ${userIds.length}`);
         
-        let profileMap: Record<string, any> = {};
-        
-        if (userIds.length > 0) {
-          const { data: profiles, error: profilesError } = await supabase
-            .from('profiles')
-            .select('id,verification_status,is_active')
-            .in('id', userIds);
-          
-          if (profilesError) throw profilesError;
-          
-          console.log(`[Vet Fetch] Fetched ${profiles?.length || 0} profiles for ${userIds.length} user IDs`);
-          
-          // Create a map of profile data by user_id
-          (profiles || []).forEach(p => {
-            profileMap[p.id] = p;
-            console.log(`[Vet Fetch] Profile ${p.id}: status=${p.verification_status}, active=${p.is_active}`);
-          });
-        }
-        
-        // Filter vets - include those with valid profiles
-        // Note: Vets without user_id are skipped as they're incomplete records
-        const list: Vet[] = vetsData
-          .filter(row => {
-            // If vet has no user_id, it's an incomplete record - skip it
-            if (!row.user_id) {
-              console.log(`[Vet Fetch] Vet ${row.id} (${row.full_name}): SKIPPED - missing user_id in database`);
-              return false;
-            }
-            
-            const profile = profileMap[row.user_id];
-            const isValid = profile && 
-                   profile.verification_status === 'approved' && 
-                   profile.is_active === true;
-            console.log(`[Vet Fetch] Vet ${row.id} (${row.full_name}): profile_exists=${!!profile}, status=${profile?.verification_status}, active=${profile?.is_active}, valid=${isValid}`);
-            return isValid;
-          })
-          .map(row => ({
-            id: row.id as number,
-            full_name: row.full_name as string,
-            user_id: row.user_id as string,
-            verification_status: profileMap[row.user_id]?.verification_status ?? null,
-            is_active: profileMap[row.user_id]?.is_active ?? null,
-          }));
-        
-        console.log(`[Vet Fetch] Final list: ${list.length} valid vets`);
         setVets(list);
         if (list.length === 0) {
           setVeterinarianId("");
@@ -152,15 +132,21 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
             return list[0].id;
           });
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching veterinarians:', error);
+        const msg = (error && typeof error === 'object' && 'message' in error) ? (error as any).message : 'Failed to load veterinarians';
+        setVetsError(msg);
         setVets([]);
         setVeterinarianId("");
+      } finally {
+        setVetsLoading(false);
       }
     };
     if (!clinicId) {
       setVets([]);
       setVeterinarianId("");
+      setVetsError(null);
+      setVetsLoading(false);
       return;
     }
     run();
@@ -223,14 +209,14 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
         .select('appointment_time,status')
         .eq('veterinarian_id', veterinarianId as number)
         .eq('appointment_date', date);
-      const busy = new Set<string>((appts||[]).filter((a:any)=> a.status !== 'canceled').map((a:any)=> a.appointment_time));
-      const todayStr = new Date().toISOString().slice(0,10);
+      const busy = new Set<string>((appts||[]).filter((a:any)=> a.status !== 'cancelled').map((a:any)=> a.appointment_time));
+      const todayStr = localISODate();
       const sameDay = date === todayStr;
       const now = new Date();
       const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
       for (let mnt = startM; mnt <= endM; mnt += stepMin) {
         const v = make(mnt);
-        const dt = buildUtc(date, v);
+        const dt = buildLocal(date, v);
         let disabled = false; let hint: string | undefined;
         if (sameDay && !isAtLeastMinutesFromNow(dt, 30)) { disabled = true; hint = 'Too soon'; }
         if (!disabled && busy.has(v)) { disabled = true; hint = 'Booked'; }
@@ -254,7 +240,7 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
     }
     // block past datetime
     try {
-      const dt = buildUtc(date, time);
+      const dt = buildLocal(date, time);
       if (isNaN(dt.getTime())) throw new Error("Invalid date/time");
       if (!isAtLeastMinutesFromNow(dt, 30)) {
         await Swal.fire({ icon: "warning", title: "Too soon", text: "Please pick a time at least 30 minutes from now." });
@@ -262,6 +248,16 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
       }
     } catch {
       await Swal.fire({ icon: "warning", title: "Invalid date/time", text: "Please verify your selection." });
+      return;
+    }
+    const rawReason = reason;
+    const finalReason = sanitizeReason(rawReason);
+    if (rawReason.trim() && !finalReason) {
+      await Swal.fire({ icon: 'warning', title: 'Invalid reason', text: 'Please use letters, numbers, and common punctuation only.' });
+      return;
+    }
+    if (finalReason && !isReasonValid(finalReason)) {
+      await Swal.fire({ icon: 'warning', title: 'Invalid reason', text: 'Please enter a short, clear reason (min 3 characters).' });
       return;
     }
     setSaving(true);
@@ -272,32 +268,24 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
         setSaving(false);
         return;
       }
-      const { data: vetProfileCheck, error: vetProfileErr } = await supabase
-        .from('profiles')
-        .select('verification_status,is_active')
-        .eq('id', vetForBooking.user_id)
-        .maybeSingle();
-      if (vetProfileErr) throw vetProfileErr;
-      if (!vetProfileCheck || vetProfileCheck.verification_status !== 'approved' || vetProfileCheck.is_active === false) {
-        await Swal.fire({ icon: 'info', title: 'Veterinarian inactive', text: 'This veterinarian is no longer active. Please choose another provider.' });
-        setSaving(false);
-        return;
-      }
+      // Skip duplicate profile gating; vetted list already enforces approved + active
 
       // Check for duplicate appointment by same pet owner on same date
       const { data: ownerAppts, error: oErr } = await supabase
         .from("appointments")
         .select("id,appointment_date,status")
         .eq("pet_owner_id", ownerId)
+        .eq("patient_id", patientId)
         .eq("appointment_date", date)
         .neq("status", "cancelled");
       if (oErr) throw oErr;
       if ((ownerAppts?.length || 0) > 0) {
         const existingAppt = ownerAppts![0];
+        const petName = pets.find(p => p.id === (patientId as number))?.name || 'this pet';
         await Swal.fire({ 
           icon: "warning", 
           title: "Appointment already exists", 
-          text: `You already have an appointment scheduled for ${date}. Please choose a different date or cancel the existing appointment.`,
+          text: `You already have an appointment for ${petName} on ${date}. Please choose a different date or cancel the existing appointment.`,
           confirmButtonColor: "#2563eb"
         });
         setSaving(false);
@@ -321,7 +309,7 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
         appointment_date: date,
         appointment_time: time,
         status: "pending",
-        reason_for_visit: (reason?.trim()?.slice(0,200)) || null,
+        reason_for_visit: finalReason || null,
         clinic_id: clinicId || null,
         pet_owner_id: ownerId,
         patient_id: patientId,
@@ -398,7 +386,11 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
               <label className="block text-sm font-medium text-neutral-700 mb-1">Veterinarian</label>
               <div className="w-full rounded-xl border border-neutral-200 px-3 py-2 bg-neutral-50 text-sm text-neutral-700">
                 {clinicId ? (
-                  assignedVet ? (
+                  vetsLoading ? (
+                    <span className="text-neutral-500 text-sm">Loading veterinarians…</span>
+                  ) : vetsError ? (
+                    <span className="text-red-500 text-sm">{vetsError}</span>
+                  ) : assignedVet ? (
                     <div className="flex flex-col gap-1">
                       <span className="font-medium">{assignedVet.full_name}</span>
                       <span className="text-xs text-neutral-500">Assigned automatically based on the selected clinic</span>
@@ -420,7 +412,7 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
             </div>
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-1">Reason for visit</label>
-              <input value={reason} onChange={(e)=> setReason(e.target.value.slice(0,200))} placeholder="e.g. Annual checkup" className="w-full rounded-xl border border-neutral-200 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
+              <input value={reason} onChange={(e)=> setReason(sanitizeReason(e.target.value))} placeholder="e.g. Annual checkup" className="w-full rounded-xl border border-neutral-200 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
               <div className="mt-1 text-xs text-neutral-400 text-right">{reasonLeft} / 200</div>
             </div>
             <div>

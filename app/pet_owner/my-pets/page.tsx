@@ -8,6 +8,7 @@ import { supabase } from "../../../lib/supabaseClient";
 import AddPetModal from "../components/AddPetModal";
 import EditPetModal from "../components/EditPetModal";
 import ViewPetModal from "../components/ViewPetModal";
+import { useRouter } from "next/navigation";
 
 type Pet = {
   id: number;
@@ -49,10 +50,12 @@ function ageFrom(dob: string | null) {
 }
 
 export default function MyPetsPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [ownerId, setOwnerId] = useState<number | null>(null);
   const [pets, setPets] = useState<Pet[]>([]);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [speciesFilter, setSpeciesFilter] = useState<string>("All");
   const [sort, setSort] = useState<string>("Newest");
   const [view, setView] = useState<"grid" | "list">("grid");
@@ -61,6 +64,7 @@ export default function MyPetsPage() {
   const [editing, setEditing] = useState<Pet | null>(null);
   const [viewOpen, setViewOpen] = useState(false);
   const [viewing, setViewing] = useState<Pet | null>(null);
+  const [ownerMissing, setOwnerMissing] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -69,33 +73,42 @@ export default function MyPetsPage() {
         const { data: auth } = await supabase.auth.getUser();
         const userId = auth.user?.id;
         if (!userId) {
-          setLoading(false);
+          router.replace("/login?redirect=/pet_owner/my-pets");
           return;
         }
-        const { data: ownerRow } = await supabase
+        const { data: ownerRow, error: ownerErr } = await supabase
           .from("pet_owner_profiles")
           .select("id")
           .eq("user_id", userId)
           .maybeSingle();
+        if (ownerErr) throw ownerErr;
         const oid = ownerRow?.id ?? null;
         setOwnerId(oid);
         if (!oid) {
-          setLoading(false);
+          setOwnerMissing(true);
           return;
         }
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from("patients")
           .select("id,owner_id,name,species,breed,date_of_birth,profile_picture_url,gender,weight")
           .eq("owner_id", oid)
           .eq("is_active", true)
           .order("created_at", { ascending: false });
+        if (error) throw error;
         setPets((data as any as Pet[]) ?? []);
+      } catch (e: any) {
+        await Swal.fire({ icon: "error", title: "Failed to load", text: e?.message || "Please try again." });
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, []);
+  }, [router]);
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQuery(query), 200);
+    return () => clearTimeout(id);
+  }, [query]);
 
   const onAdd = () => setModalOpen(true);
   const onEdit = (p: Pet) => {
@@ -105,10 +118,24 @@ export default function MyPetsPage() {
   const onDelete = async (p: Pet) => {
     const res = await Swal.fire({ title: `Remove ${p.name}?`, text: "This will deactivate the pet profile.", icon: "warning", showCancelButton: true, confirmButtonColor: "#ef4444" });
     if (res.isConfirmed) {
-      await supabase.from("patients").update({ is_active: false }).eq("id", p.id);
-      setPets((prev) => prev.filter((x) => x.id !== p.id));
-      try { await supabase.from('notifications').insert({ title: 'Pet removed', message: `${p.name} has been deactivated`, notification_type:'system' }); } catch {}
-      Swal.fire({ title: "Removed", icon: "success", timer: 1200, showConfirmButton: false });
+      try {
+        const { data, error } = await supabase
+          .from("patients")
+          .update({ is_active: false })
+          .eq("id", p.id)
+          .eq("owner_id", ownerId as number)
+          .select("id")
+          .maybeSingle();
+        if (error || !data) {
+          await Swal.fire({ icon: "error", title: "Failed to remove", text: error?.message || "No permission or pet not found." });
+          return;
+        }
+        setPets((prev) => prev.filter((x) => x.id !== p.id));
+        try { await supabase.from('notifications').insert({ title: 'Pet removed', message: `${p.name} has been deactivated`, notification_type:'system' }); } catch {}
+        Swal.fire({ title: "Removed", icon: "success", timer: 1200, showConfirmButton: false });
+      } catch (e: any) {
+        await Swal.fire({ icon: "error", title: "Failed to remove", text: e?.message || "Please try again." });
+      }
     }
   };
 
@@ -119,7 +146,7 @@ export default function MyPetsPage() {
   }, [pets]);
 
   const displayed = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = debouncedQuery.trim().toLowerCase();
     const filtered = pets.filter((p) => {
       const qok = q ? `${p.name} ${p.species} ${p.breed ?? ""}`.toLowerCase().includes(q) : true;
       const sok = speciesFilter === "All" ? true : p.species === speciesFilter;
@@ -131,7 +158,7 @@ export default function MyPetsPage() {
       return 0; // Newest handled by DB order
     });
     return sorted;
-  }, [pets, query, speciesFilter, sort]);
+  }, [pets, debouncedQuery, speciesFilter, sort]);
 
   return (
     <div className="min-h-dvh bg-neutral-50">
@@ -224,7 +251,7 @@ export default function MyPetsPage() {
               <div key={p.id} className={`group rounded-lg sm:rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden transition-all hover:shadow-lg hover:-translate-y-0.5 ${view==='list' ? 'flex flex-col sm:flex-row' : ''}`}>
                 <div className={`relative ${view==='list' ? 'h-32 sm:h-44 sm:w-44' : 'h-40 sm:h-44'} w-full bg-neutral-100 flex-shrink-0`}>
                   {p.profile_picture_url ? (
-                    <img src={p.profile_picture_url} alt={p.name} className="h-full w-full object-cover" />
+                    <img src={p.profile_picture_url} alt={p.name} loading="lazy" className="h-full w-full object-cover" />
                   ) : (
                     <div className="h-full w-full grid place-items-center text-neutral-400 text-xs sm:text-sm">No photo</div>
                   )}
@@ -289,6 +316,17 @@ export default function MyPetsPage() {
             setPets((prev) => [pet, ...prev]);
           }}
         />
+      )}
+      {!loading && ownerMissing && (
+        <div className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 lg:px-8 pb-6">
+          <div className="mt-4 rounded-lg sm:rounded-2xl bg-amber-50 ring-1 ring-amber-200 p-4 text-amber-800">
+            <div className="font-medium mb-1">Profile incomplete</div>
+            <div className="text-sm">We couldn't find your pet owner profile. Please complete your profile to manage pets.</div>
+            <div className="mt-3">
+              <Link href="/pet_owner/settings" className="inline-flex items-center px-3 py-1.5 rounded-lg bg-amber-600 text-white text-sm hover:bg-amber-700">Go to Settings</Link>
+            </div>
+          </div>
+        </div>
       )}
       {editing && (
         <EditPetModal

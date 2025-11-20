@@ -9,6 +9,7 @@ import { ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 import TermsAndConditionsModal from "../components/TermsAndConditionsModal";
 import { getSiteUrl } from "../../lib/utils/site";
 import { normalizeEmailForUniqueness } from "../../lib/utils/email";
+import { sanitizeName, validateName, sanitizePhone, validatePhone } from "../../lib/utils/validation";
 
 const PRIMARY = "#0032A0";
 const SECONDARY = "#b3c7e6";
@@ -22,6 +23,8 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [phone, setPhone] = useState("");
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [showPwd, setShowPwd] = useState(false);
   const [showPwd2, setShowPwd2] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -97,6 +100,17 @@ export default function SignupPage() {
     
     handleGoogleSignupRedirect();
   }, []);
+
+  // Realtime validation for Step 2 fields
+  useEffect(() => {
+    const n = validateName(fullName);
+    setNameError(n.ok ? null : n.error || null);
+  }, [fullName]);
+  useEffect(() => {
+    if (!phone) { setPhoneError(null); return; }
+    const p = validatePhone(phone);
+    setPhoneError(p.ok ? null : p.error || null);
+  }, [phone]);
 
   const getPasswordStrength = (pwd: string) => {
     if (!pwd) return { score: 0, label: "", color: "" };
@@ -249,10 +263,19 @@ export default function SignupPage() {
       return;
     }
     if (step === 2) {
-      if (!fullName) {
+      const n = validateName(fullName);
+      if (!n.ok) {
         setLoading(false);
-        await Swal.fire({ icon: "warning", title: "Name required", text: "Please enter your full name." });
+        await Swal.fire({ icon: "warning", title: "Invalid name", text: n.error || "Please enter a valid full name." });
         return;
+      }
+      if (phone) {
+        const p = validatePhone(phone);
+        if (!p.ok) {
+          setLoading(false);
+          await Swal.fire({ icon: "warning", title: "Invalid phone number", text: p.error || "Please enter a valid mobile number." });
+          return;
+        }
       }
       setStep(3);
       return;

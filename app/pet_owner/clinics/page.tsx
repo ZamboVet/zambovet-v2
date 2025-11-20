@@ -8,11 +8,13 @@ import { BuildingOffice2Icon, MagnifyingGlassIcon, MapPinIcon, PhoneIcon, StarIc
 import CreateAppointmentModal from "../components/CreateAppointmentModal";
 import ClinicDetailsModal from "../components/ClinicDetailsModal";
 import AllClinicsMapModal from "../components/AllClinicsMapModal";
+import { useRouter } from "next/navigation";
 
 type Review = { id: number; rating: number; title: string | null; comment: string | null; created_at: string };
-type Clinic = { id: number; name: string; address: string | null; phone: string | null; rating?: number | null; reviews?: Review[] };
+type Clinic = { id: number; name: string; address: string | null; phone: string | null; city?: string | null; rating?: number | null; reviews?: Review[] };
 
 export default function OwnerClinicsPage() {
+  const router = useRouter();
   const [ownerId, setOwnerId] = useState<number | null>(null);
   const [items, setItems] = useState<Clinic[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,6 +30,7 @@ export default function OwnerClinicsPage() {
   const [allPoints, setAllPoints] = useState<Array<{ id:number; name:string; lat:number; lon:number; address?: string | null }>>([]);
   const [clinicReviews, setClinicReviews] = useState<Record<number, Review[]>>({});
   const [expandedClinic, setExpandedClinic] = useState<number | null>(null);
+  const [reviewsError, setReviewsError] = useState<string | null>(null);
 
   const searchRef = useRef<HTMLInputElement | null>(null);
   const debounceTimer = useRef<any>(null);
@@ -37,13 +40,19 @@ export default function OwnerClinicsPage() {
   };
 
   useEffect(() => {
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
+  }, []);
+
+  useEffect(() => {
     const init = async () => {
       try {
         const { data: auth } = await supabase.auth.getUser();
         const userId = auth.user?.id;
         if (!userId) {
           await Swal.fire({ icon: "warning", title: "Sign in required", text: "Please sign in to continue." });
-          window.location.href = "/login";
+          router.replace("/login?redirect=/pet_owner/clinics");
           return;
         }
         const { data: ownerRow } = await supabase.from("pet_owner_profiles").select("id").eq("user_id", userId).maybeSingle();
@@ -53,13 +62,13 @@ export default function OwnerClinicsPage() {
       }
     };
     init();
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     const fetchList = async () => {
       setLoading(true);
       try {
-        let q = supabase.from("clinics").select("id,name,address,phone").order("name", { ascending: true });
+        let q = supabase.from("clinics").select("id,name,address,phone,city").order("name", { ascending: true });
         if (query.trim()) q = q.ilike("name", `%${query.trim()}%`);
         const { data, error } = await q;
         if (error) throw error;
@@ -73,17 +82,21 @@ export default function OwnerClinicsPage() {
     fetchList();
   }, [query]);
 
-  // Fetch availability (clinics having available veterinarians)
+  // Fetch availability (clinics having available veterinarians) via vetted view
   useEffect(() => {
     const fetchAvailability = async () => {
-      const { data } = await supabase
-        .from('veterinarians')
-        .select('clinic_id')
-        .eq('is_available', true)
-        .not('clinic_id', 'is', null);
-      const set = new Set<number>();
-      (data || []).forEach((r: any) => { if (r.clinic_id) set.add(r.clinic_id as number); });
-      setAvailableSet(set);
+      try {
+        const { data, error } = await supabase
+          .from('owner_visible_vets')
+          .select('clinic_id')
+          .not('clinic_id', 'is', null);
+        if (error) throw error;
+        const set = new Set<number>();
+        (data || []).forEach((r: any) => { if (r.clinic_id) set.add(r.clinic_id as number); });
+        setAvailableSet(set);
+      } catch (e: any) {
+        await Swal.fire({ icon: 'error', title: 'Failed to load availability', text: e?.message || 'Please try again.' });
+      }
     };
     fetchAvailability();
   }, []);
@@ -112,14 +125,15 @@ export default function OwnerClinicsPage() {
         });
         
         setClinicReviews(reviewsByClinic);
+        setReviewsError(null);
       } catch (e: any) {
-        // Silently fail if reviews can't be fetched
+        setReviewsError(e?.message || 'Unable to load some reviews.');
       }
     };
     fetchAllReviews();
   }, [items]);
 
-  // Listen for veterinarian status changes
+  // Listen for veterinarian status changes and refresh availability from view
   useEffect(() => {
     const channel = supabase.channel('vet-status-changes')
       .on('postgres_changes', { 
@@ -128,23 +142,24 @@ export default function OwnerClinicsPage() {
         table: 'veterinarians',
         filter: 'clinic_id=not.is.null'
       }, async () => {
-        // Refresh availability when vet status changes
-        const { data } = await supabase
-          .from('veterinarians')
-          .select('clinic_id')
-          .eq('is_available', true)
-          .not('clinic_id', 'is', null);
-        const set = new Set<number>();
-        (data || []).forEach((r: any) => { if (r.clinic_id) set.add(r.clinic_id as number); });
-        setAvailableSet(set);
+        try {
+          const { data, error } = await supabase
+            .from('owner_visible_vets')
+            .select('clinic_id')
+            .not('clinic_id', 'is', null);
+          if (error) throw error;
+          const set = new Set<number>();
+          (data || []).forEach((r: any) => { if (r.clinic_id) set.add(r.clinic_id as number); });
+          setAvailableSet(set);
+        } catch {}
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  // Derive city list from addresses
+  // Derive city list from column
   const allCities = Array.from(new Set(items
-    .map(c => (c.address || '').split(',').map(s=>s.trim()).slice(-2,-1)[0])
+    .map(c => (c.city || '').trim())
     .filter(Boolean))) as string[];
 
   // Persist filters to URL + localStorage
@@ -175,11 +190,13 @@ export default function OwnerClinicsPage() {
 
   const filtered = items.filter(c => {
     const matchQuery = query.trim() ? (c.name || '').toLowerCase().includes(query.trim().toLowerCase()) : true;
-    const inferredCity = ((c.address || '').split(',').map((s:string)=>s.trim()).slice(-2,-1)[0]) || '';
-    const matchCity = city === 'all' ? true : inferredCity.toLowerCase() === city.toLowerCase();
+    const clinicCity = (c.city || '').trim();
+    const matchCity = city === 'all' ? true : clinicCity.toLowerCase() === city.toLowerCase();
     const matchAvail = onlyAvailable ? availableSet.has(c.id) : true;
     return matchQuery && matchCity && matchAvail;
   });
+
+  const digitsOnly = (s: string) => (s || '').replace(/[^0-9+]/g, '');
 
   const onOpenAllMap = async () => {
     try {
@@ -198,18 +215,17 @@ export default function OwnerClinicsPage() {
     }
   };
 
-  // Realtime refresh for clinics
+  // Realtime refresh for clinics (silent)
   useEffect(() => {
     const ch = supabase
       .channel("owner-clinics-list")
       .on("postgres_changes", { event: "*", schema: "public", table: "clinics" }, () => {
         (async () => {
           try {
-            let q = supabase.from("clinics").select("id,name,address,phone").order("name", { ascending: true });
+            let q = supabase.from("clinics").select("id,name,address,phone,city").order("name", { ascending: true });
             if (query.trim()) q = q.ilike("name", `%${query.trim()}%`);
             const { data } = await q;
             setItems((data || []) as any);
-            await Swal.fire({ icon: 'info', title: 'Refreshed', confirmButtonColor: '#2563eb' });
           } catch {}
         })();
       })
@@ -260,6 +276,12 @@ export default function OwnerClinicsPage() {
           </div>
         </div>
       </div>
+
+      {reviewsError && (
+        <div className="rounded-lg sm:rounded-2xl bg-amber-50 ring-1 ring-amber-200 text-amber-800 px-3 sm:px-4 py-2">
+          <div className="text-xs sm:text-sm">Some reviews could not be loaded: {reviewsError}</div>
+        </div>
+      )}
 
       {/* Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
@@ -319,7 +341,7 @@ export default function OwnerClinicsPage() {
                       <MapPinIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
                     </button>
                     {c.phone && (
-                      <a href={`tel:${c.phone}`} className="flex-1 sm:flex-none p-1.5 sm:p-2 rounded-lg bg-white ring-1 ring-neutral-200 hover:bg-neutral-50 text-blue-700 flex items-center justify-center active:scale-95" title="Call clinic">
+                      <a href={`tel:${digitsOnly(c.phone)}`} className="flex-1 sm:flex-none p-1.5 sm:p-2 rounded-lg bg-white ring-1 ring-neutral-200 hover:bg-neutral-50 text-blue-700 flex items-center justify-center active:scale-95" title="Call clinic">
                         <PhoneIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
                       </a>
                     )}
