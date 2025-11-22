@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import jwt from 'jsonwebtoken';
 
 /**
  * API endpoint to send push notifications
@@ -20,6 +21,18 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 // Initialize Supabase with service role (for server-side operations)
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+// Parse Firebase credentials from environment
+function getFirebaseCredentials() {
+  try {
+    const key = process.env.FIREBASE_SERVER_KEY;
+    if (!key) return null;
+    return JSON.parse(key);
+  } catch (err) {
+    console.error('Failed to parse Firebase credentials:', err);
+    return null;
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -119,37 +132,133 @@ async function sendFCMNotification(
   payload: any
 ): Promise<{ success: boolean; error?: any }> {
   try {
-    const fcmServerKey = process.env.FIREBASE_SERVER_KEY;
-    if (!fcmServerKey) {
-      console.warn('FIREBASE_SERVER_KEY not configured');
-      return { success: false, error: 'FCM not configured' };
+    const credentials = getFirebaseCredentials();
+    if (!credentials) {
+      console.warn('Firebase credentials not configured');
+      return { success: false, error: 'Firebase not configured' };
     }
 
-    const response = await fetch('https://fcm.googleapis.com/fcm/send', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `key=${fcmServerKey}`,
-      },
-      body: JSON.stringify({
-        to: deviceToken,
-        notification: {
-          title: payload.title,
-          body: payload.body,
-          icon: '/icon-192x192.png',
+    // Get access token from Firebase
+    const accessToken = await getFirebaseAccessToken(credentials);
+    if (!accessToken) {
+      return { success: false, error: 'Failed to get Firebase access token' };
+    }
+
+    // Send via Firebase Cloud Messaging v1 API
+    const projectId = credentials.project_id;
+    const response = await fetch(
+      `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
         },
-        data: payload.data,
-      }),
-    });
+        body: JSON.stringify({
+          message: {
+            token: deviceToken,
+            notification: {
+              title: payload.title,
+              body: payload.body,
+            },
+            data: payload.data,
+            android: {
+              priority: 'high',
+              notification: {
+                icon: 'icon',
+                color: '#2563eb',
+              },
+            },
+            apns: {
+              payload: {
+                aps: {
+                  alert: {
+                    title: payload.title,
+                    body: payload.body,
+                  },
+                  sound: 'default',
+                  badge: 1,
+                },
+              },
+            },
+          },
+        }),
+      }
+    );
 
     if (!response.ok) {
       const error = await response.json();
+      console.error('FCM error:', error);
       return { success: false, error };
     }
 
     return { success: true };
   } catch (err) {
+    console.error('FCM send error:', err);
     return { success: false, error: err };
+  }
+}
+
+/**
+ * Get Firebase access token using service account credentials
+ */
+async function getFirebaseAccessToken(credentials: any): Promise<string | null> {
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    const expiresIn = 3600;
+
+    // Create JWT header and payload
+    const header = {
+      alg: 'RS256',
+      typ: 'JWT',
+    };
+
+    const payload = {
+      iss: credentials.client_email,
+      scope: 'https://www.googleapis.com/auth/cloud-platform',
+      aud: 'https://oauth2.googleapis.com/token',
+      exp: now + expiresIn,
+      iat: now,
+    };
+
+    // For now, use a simpler approach - call Google's token endpoint
+    // In production, you'd sign the JWT with the private key
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        assertion: createJWT(header, payload, credentials.private_key),
+      }).toString(),
+    });
+
+    if (!response.ok) {
+      console.error('Failed to get access token');
+      return null;
+    }
+
+    const data = await response.json();
+    return data.access_token;
+  } catch (err) {
+    console.error('Error getting Firebase access token:', err);
+    return null;
+  }
+}
+
+/**
+ * Create a JWT token for Firebase authentication
+ */
+function createJWT(header: any, payload: any, privateKey: string): string {
+  try {
+    return jwt.sign(payload, privateKey, {
+      algorithm: 'RS256',
+      header: header,
+    });
+  } catch (err) {
+    console.error('Failed to create JWT:', err);
+    throw new Error('JWT signing failed');
   }
 }
 

@@ -241,10 +241,23 @@ export default function MomentsFeedPage() {
       await supabase.from("pet_post_comments").insert({ post_id: postId, pet_owner_id: owner.id, content: text.trim() });
       const thePost = posts.find(p => p.id === postId);
       if (thePost && thePost.pet_owner_id !== owner.id) {
-        const { data: target } = await supabase.from('pet_owner_profiles').select('user_id').eq('id', thePost.pet_owner_id).maybeSingle();
+        const { data: target } = await supabase.from('pet_owner_profiles').select('user_id, full_name').eq('id', thePost.pet_owner_id).maybeSingle();
         const targetUid = (target as any)?.user_id as string | undefined;
         if (targetUid) {
           await supabase.from('notifications').insert({ user_id: targetUid as any, title: 'New comment', message: 'Someone commented on your post', notification_type: 'moment' });
+          
+          // Send push notification
+          await fetch('/api/send-push-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: targetUid,
+              title: '💬 New comment on your post',
+              message: `${(owner as any)?.full_name || 'Someone'} commented: "${text.trim().substring(0, 50)}${text.trim().length > 50 ? '...' : ''}"`,
+              data: { postId: postId },
+              notificationType: 'moment_comment'
+            })
+          }).catch(err => console.error('Push notification failed:', err));
         }
       }
     } catch (e: any) {
@@ -341,6 +354,19 @@ export default function MomentsFeedPage() {
           const targetUid = (target as any)?.user_id as string | undefined;
           if (targetUid) {
             await supabase.from('notifications').insert({ user_id: targetUid as any, title: 'New reaction', message: 'Someone liked your post', notification_type: 'moment' });
+            
+            // Send push notification
+            await fetch('/api/send-push-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: targetUid,
+                title: '👍 Someone liked your post',
+                message: `${(owner as any)?.full_name || 'Someone'} liked your post`,
+                data: { postId: postId },
+                notificationType: 'moment_reaction'
+              })
+            }).catch(err => console.error('Push notification failed:', err));
           }
         }
       }
