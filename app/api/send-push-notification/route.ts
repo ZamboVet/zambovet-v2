@@ -134,67 +134,78 @@ async function sendFCMNotification(
   try {
     const credentials = getFirebaseCredentials();
     if (!credentials) {
-      console.warn('Firebase credentials not configured');
+      console.error('❌ Firebase credentials not configured');
       return { success: false, error: 'Firebase not configured' };
     }
+
+    console.log('📤 Sending FCM notification...');
+    console.log('   Project ID:', credentials.project_id);
+    console.log('   Device Token:', deviceToken.substring(0, 20) + '...');
 
     // Get access token from Firebase
     const accessToken = await getFirebaseAccessToken(credentials);
     if (!accessToken) {
+      console.error('❌ Failed to get Firebase access token');
       return { success: false, error: 'Failed to get Firebase access token' };
     }
 
+    console.log('✅ Got Firebase access token');
+
     // Send via Firebase Cloud Messaging v1 API
     const projectId = credentials.project_id;
-    const response = await fetch(
-      `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          message: {
-            token: deviceToken,
+    const fcmUrl = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
+    
+    console.log('📨 Sending to FCM URL:', fcmUrl);
+
+    const response = await fetch(fcmUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        message: {
+          token: deviceToken,
+          notification: {
+            title: payload.title,
+            body: payload.body,
+          },
+          data: payload.data,
+          android: {
+            priority: 'high',
             notification: {
-              title: payload.title,
-              body: payload.body,
+              icon: 'icon',
+              color: '#2563eb',
+              sound: 'default',
             },
-            data: payload.data,
-            android: {
-              priority: 'high',
-              notification: {
-                icon: 'icon',
-                color: '#2563eb',
-              },
-            },
-            apns: {
-              payload: {
-                aps: {
-                  alert: {
-                    title: payload.title,
-                    body: payload.body,
-                  },
-                  sound: 'default',
-                  badge: 1,
+          },
+          apns: {
+            payload: {
+              aps: {
+                alert: {
+                  title: payload.title,
+                  body: payload.body,
                 },
+                sound: 'default',
+                badge: 1,
               },
             },
           },
-        }),
-      }
-    );
+        },
+      }),
+    });
 
     if (!response.ok) {
       const error = await response.json();
-      console.error('FCM error:', error);
+      console.error('❌ FCM error:', error);
       return { success: false, error };
     }
 
+    const result = await response.json();
+    console.log('✅ FCM notification sent successfully:', result.name);
     return { success: true };
   } catch (err) {
-    console.error('FCM send error:', err);
+    console.error('❌ FCM send error:', err);
     return { success: false, error: err };
   }
 }
@@ -221,8 +232,9 @@ async function getFirebaseAccessToken(credentials: any): Promise<string | null> 
       iat: now,
     };
 
-    // For now, use a simpler approach - call Google's token endpoint
-    // In production, you'd sign the JWT with the private key
+    // Sign JWT with private key
+    const token = createJWT(header, payload, credentials.private_key);
+    
     const response = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: {
@@ -230,12 +242,13 @@ async function getFirebaseAccessToken(credentials: any): Promise<string | null> 
       },
       body: new URLSearchParams({
         grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-        assertion: createJWT(header, payload, credentials.private_key),
+        assertion: token,
       }).toString(),
     });
 
     if (!response.ok) {
-      console.error('Failed to get access token');
+      const errorData = await response.json();
+      console.error('Failed to get access token:', errorData);
       return null;
     }
 

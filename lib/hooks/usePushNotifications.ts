@@ -32,9 +32,15 @@ export function usePushNotifications() {
 
           // Listen for token registration
           PushNotifications.addListener('registration', (token: any) => {
-            console.log('Push notification token received:', token.value);
+            console.log('🔔 Push notification token received:', token.value);
+            console.log('🔔 Platform:', platform);
+            console.log('🔔 User ID:', userId);
             if (token.value) {
-              registerDeviceToken(userId, token.value, platform);
+              registerDeviceToken(userId, token.value, platform).then(() => {
+                console.log('✅ Token registered successfully');
+              }).catch(err => {
+                console.error('❌ Failed to register token:', err);
+              });
             }
           });
 
