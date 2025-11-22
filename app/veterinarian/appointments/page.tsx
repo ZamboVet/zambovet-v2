@@ -173,6 +173,19 @@ function VetAppointmentsPageInner() {
         const ownerUserId = (ownerData as any)?.user_id;
         if (ownerUserId) {
           await supabase.from('notifications').insert({ user_id: ownerUserId, title, message: `Appointment #${id} → ${next}`, related_appointment_id: id, notification_type: 'system' });
+          
+          // Send push notification
+          await fetch('/api/send-push-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: ownerUserId,
+              title: next === 'confirmed' ? '✨ Appointment Confirmed!' : `Appointment ${next}`,
+              message: `Your appointment #${id} status: ${next}`,
+              data: { appointmentId: id },
+              notificationType: `appointment_${next}`
+            })
+          }).catch(err => console.error('Push notification failed:', err));
         }
       }
     } catch {}
@@ -219,6 +232,19 @@ function VetAppointmentsPageInner() {
         const ownerUserId = (ownerData as any)?.user_id;
         if (ownerUserId) {
           await supabase.from('notifications').insert({ user_id: ownerUserId, title: 'Appointment rescheduled', message: `Appointment #${a.id} → ${form.date} • ${form.time}`, related_appointment_id: a.id, notification_type: 'system' });
+          
+          // Send push notification
+          await fetch('/api/send-push-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: ownerUserId,
+              title: '📅 Appointment Rescheduled',
+              message: `Your appointment has been rescheduled to ${form.date} at ${form.time}`,
+              data: { appointmentId: a.id },
+              notificationType: 'appointment_rescheduled'
+            })
+          }).catch(err => console.error('Push notification failed:', err));
         }
       }
     } catch {}
