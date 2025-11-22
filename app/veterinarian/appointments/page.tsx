@@ -163,19 +163,23 @@ function VetAppointmentsPageInner() {
       await Swal.fire({ icon: "error", title: "Update failed", text: error.message });
       return;
     }
+    // Get appointment details BEFORE updating state
+    const apptItem = items.find(it => it.id === id);
+    
     setItems(prev => prev.map(it => (it.id === id ? { ...it, status: next } : it)));
     try {
       const title = next === 'confirmed' ? 'Appointment confirmed' : next === 'completed' ? 'Appointment completed' : next === 'no_show' ? 'Appointment marked no-show' : next === 'canceled' ? 'Appointment canceled' : 'Appointment updated';
       // Get the appointment details to find pet owner's user_id
-      const apptItem = items.find(it => it.id === id);
       if (apptItem?.pet_owner_id) {
         const { data: ownerData } = await supabase.from('pet_owner_profiles').select('user_id').eq('id', apptItem.pet_owner_id).maybeSingle();
         const ownerUserId = (ownerData as any)?.user_id;
         if (ownerUserId) {
+          console.log('📢 Sending notification to user:', ownerUserId);
           await supabase.from('notifications').insert({ user_id: ownerUserId, title, message: `Appointment #${id} → ${next}`, related_appointment_id: id, notification_type: 'system' });
           
           // Send push notification
-          await fetch('/api/send-push-notification', {
+          console.log('📤 Calling push notification API...');
+          const response = await fetch('/api/send-push-notification', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -185,10 +189,14 @@ function VetAppointmentsPageInner() {
               data: { appointmentId: id },
               notificationType: `appointment_${next}`
             })
-          }).catch(err => console.error('Push notification failed:', err));
+          });
+          const result = await response.json();
+          console.log('✅ Push notification response:', result);
         }
       }
-    } catch {}
+    } catch (err) {
+      console.error('❌ Error sending notification:', err);
+    }
     await Swal.fire({ icon: "success", title: "Status updated" });
   };
 
