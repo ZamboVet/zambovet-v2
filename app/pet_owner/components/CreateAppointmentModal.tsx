@@ -49,7 +49,9 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
       const nf = s.normalize('NFKC');
       const cleaned = nf.replace(/[^A-Za-z0-9 \t\n.,\-'/()&+:#?%!]/g, "");
       const collapsed = cleaned.replace(/\s+/g, " ");
-      return collapsed.trim().slice(0, 200);
+      // Do not trim here to allow users to type spaces naturally (leading/trailing)
+      // Length is still capped to 200 for UX feedback
+      return collapsed.slice(0, 200);
     } catch {
       return s.slice(0, 200);
     }
@@ -251,7 +253,8 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
       return;
     }
     const rawReason = reason;
-    const finalReason = sanitizeReason(rawReason);
+    // Trim only on submit to store a clean value while allowing spaces during typing
+    const finalReason = sanitizeReason(rawReason).trim();
     if (rawReason.trim() && !finalReason) {
       await Swal.fire({ icon: 'warning', title: 'Invalid reason', text: 'Please use letters, numbers, and common punctuation only.' });
       return;

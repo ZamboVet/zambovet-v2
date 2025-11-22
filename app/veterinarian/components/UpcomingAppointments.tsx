@@ -34,16 +34,16 @@ export default function UpcomingAppointments({ appointments, loading, range, set
 
   return (
     <div className="lg:col-span-2 rounded-2xl bg-white p-5 shadow ring-1 ring-black/5">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
         <h2 className="text-lg font-semibold" style={{ color: primary }}>Upcoming Appointments</h2>
         {mounted ? (
-          <select suppressHydrationWarning value={range} onChange={(e) => setRange(e.target.value)} className="text-sm outline-none bg-white border rounded-lg px-2 py-1">
+          <select suppressHydrationWarning value={range} onChange={(e) => setRange(e.target.value)} className="text-sm outline-none bg-white border rounded-lg px-2 py-1 max-w-full">
             <option value="7d">Next 7 days</option>
             <option value="30d">Next 30 days</option>
             <option value="90d">Next 90 days</option>
           </select>
         ) : (
-          <select className="text-sm outline-none bg-white border rounded-lg px-2 py-1" defaultValue={range} aria-hidden>
+          <select className="text-sm outline-none bg-white border rounded-lg px-2 py-1 max-w-full" defaultValue={range} aria-hidden>
             <option value="7d">Next 7 days</option>
             <option value="30d">Next 30 days</option>
             <option value="90d">Next 90 days</option>
@@ -63,8 +63,8 @@ export default function UpcomingAppointments({ appointments, loading, range, set
           </li>
         ) : (
           appointments.map(a => (
-            <li key={a.id} className="py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <li key={a.id} className="py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
                 <CalendarDaysIcon className="w-9 h-9 rounded-xl p-2 bg-blue-50 text-blue-700" />
                 <div>
                   <div className="font-medium" style={{ color: primary }}>{a.appointment_date} • {formatTime(a.appointment_time)}</div>

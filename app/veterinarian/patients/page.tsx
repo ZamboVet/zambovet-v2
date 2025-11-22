@@ -38,7 +38,8 @@ export default function VetPatientsPage() {
         const user = auth.user;
         if (!user) {
           await Swal.fire({ icon: "warning", title: "Sign in required", text: "Please sign in to continue." });
-          window.location.href = "/login";
+          const current = `${window.location.pathname}${window.location.search}`;
+          window.location.href = `/login?redirect=${encodeURIComponent(current)}`;
           return;
         }
         const { data: p, error: pErr } = await supabase.from("profiles").select("id,email,full_name,user_role,verification_status").eq("id", user.id).single();
@@ -192,12 +193,12 @@ export default function VetPatientsPage() {
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-white ring-1 ring-gray-200 max-w-xl flex-1 shadow-sm">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-white ring-1 ring-gray-200 max-w-xl flex-1 min-w-0 shadow-sm">
           <MagnifyingGlassIcon className="w-4 h-4 text-gray-500" />
           <input value={query} onChange={(e) => { setPage(1); setQuery(e.target.value); }} placeholder="Search pet name" className="w-full outline-none text-sm bg-transparent" />
         </div>
-        <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-white ring-1 ring-gray-200 shadow-sm">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-white ring-1 ring-gray-200 shadow-sm min-w-max">
           <FunnelIcon className="w-4 h-4 text-gray-500" />
           <select value={speciesFilter} onChange={(e)=>{ setPage(1); setSpeciesFilter(e.target.value); setBreedFilter("all"); }} className="text-sm bg-transparent outline-none">
             <option value="all">All species</option>
@@ -214,7 +215,7 @@ export default function VetPatientsPage() {
             <option value="Persian">Persian</option>
           </select>
         </div>
-        <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-white ring-1 ring-gray-200 shadow-sm">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-white ring-1 ring-gray-200 shadow-sm min-w-max">
           <span className="text-xs text-gray-500">Sort</span>
           <select value={sort} onChange={(e)=>{ setPage(1); setSort(e.target.value); }} className="text-sm bg-transparent outline-none">
             <option value="last_visit_desc">Last visit (newest)</option>
@@ -258,7 +259,8 @@ export default function VetPatientsPage() {
           <p className="text-xs text-gray-400">Search by name or check your upcoming appointments.</p>
         </div>
       ) : (
-        <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 overflow-x-auto">
+        <>
+        <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 overflow-x-auto hidden sm:block">
           <table className="w-full min-w-[720px]">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
@@ -346,6 +348,32 @@ export default function VetPatientsPage() {
             </tbody>
           </table>
         </div>
+        <div className="sm:hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100">
+          <ul className="divide-y">
+            {items.map(p => (
+              <li key={p.id} className="p-4">
+                <div className="rounded-xl bg-white ring-1 ring-gray-100 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-semibold" style={{ color: PRIMARY }}>{p.name}</div>
+                      <div className="mt-0.5 text-xs text-gray-500 flex flex-wrap items-center gap-2">
+                        <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200">{p.species}</span>
+                        {p.breed ? <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 ring-1 ring-amber-200">{p.breed}</span> : null}
+                        <span className="truncate">Owner: {p.owner?.full_name || "—"}</span>
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500 whitespace-nowrap">{meta[p.id]?.last_visit ? String(meta[p.id]?.last_visit).slice(0,16) : "—"}</div>
+                  </div>
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <Link href={{ pathname: "/veterinarian/appointments", query: { patient: p.id } }} className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium text-center">Consult</Link>
+                    <Link href={{ pathname: "/veterinarian/patients/daily", query: { patient: p.id } }} className="px-3 py-2 rounded-lg bg-gray-100 text-gray-700 ring-1 ring-gray-300 text-sm font-medium text-center">Records</Link>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+        </>
       )}
 
       <div className="flex items-center justify-between text-sm">

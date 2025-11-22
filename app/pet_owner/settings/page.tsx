@@ -6,7 +6,7 @@ import { supabase } from "../../../lib/supabaseClient";
 import { swalConfirmColor } from "../../../lib/ui/tokens";
 import { CheckCircleIcon, IdentificationIcon, BellAlertIcon, ShieldCheckIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 import { getSiteUrl } from "../../../lib/utils/site";
-import { sanitizeName, validateName, sanitizeAddress, validateAddress, sanitizePhone, validatePhone } from "../../../lib/utils/validation";
+import { sanitizeName, sanitizeNameLoose, validateName, sanitizeAddress, validateAddress, sanitizePhone, validatePhone } from "../../../lib/utils/validation";
 
 const SITE_URL = getSiteUrl();
 
@@ -376,7 +376,7 @@ export default function OwnerSettingsPage() {
               <label className="block text-xs sm:text-sm text-neutral-600 mb-1">Full name</label>
               <input
                 value={fullName}
-                onChange={(e) => setFullName(sanitizeName(e.target.value))}
+                onChange={(e) => setFullName(sanitizeNameLoose(e.target.value))}
                 className="w-full px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-neutral-200 outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
               />
               {nameError && <div className="mt-1 text-[11px] sm:text-xs text-red-600">{nameError}</div>}

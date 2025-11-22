@@ -34,7 +34,7 @@ export default function RecentReviews({ reviews, loading, primary }: Props) {
                 <span className="text-xs text-gray-400">{r.created_at?.slice(0,10) || ""}</span>
               </div>
               <div className="mt-1 text-sm font-medium" style={{ color: primary }}>{r.title || "Review"}</div>
-              <div className="text-sm text-gray-600">{r.comment || ""}</div>
+              <div className="text-sm text-gray-600 break-words">{r.comment || ""}</div>
             </li>
           ))
         )}

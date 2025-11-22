@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
 import { supabase } from "../../../lib/supabaseClient";
 import { getCurrentVet } from "../../../lib/utils/currentVet";
@@ -23,7 +23,7 @@ type Notif = {
   created_at: string;
 };
 
-export default function VetNotifications() {
+function VetNotificationsInner() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [items, setItems] = useState<Notif[]>([]);
   const [loading, setLoading] = useState(true);
@@ -176,5 +176,13 @@ export default function VetNotifications() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function VetNotifications() {
+  return (
+    <Suspense fallback={<div className="text-center py-8">Loading...</div>}>
+      <VetNotificationsInner />
+    </Suspense>
   );
 }
