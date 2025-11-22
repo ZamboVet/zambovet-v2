@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import { supabase } from "../../../../lib/supabaseClient";
 import { getCurrentVet } from "../../../../lib/utils/currentVet";
@@ -17,7 +17,7 @@ type Vet = { id: number; user_id: string; full_name: string; clinic_id: number |
 type Clinic = { id: number; name: string; address: string | null; latitude: number | null; longitude: number | null; operating_hours?: any };
 type Hours = { [day in "Mon"|"Tue"|"Wed"|"Thu"|"Fri"|"Sat"|"Sun"]: { open: string; close: string; closed?: boolean } };
 
-export default function ClinicLocationPage() {
+function ClinicLocationPageInner() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [vet, setVet] = useState<Vet | null>(null);
   const [clinic, setClinic] = useState<Clinic | null>(null);
@@ -388,12 +388,12 @@ export default function ClinicLocationPage() {
 
   return (
     <div className={`${poppins.className} space-y-6`}>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold" style={{ color: PRIMARY }}>Clinic Location</h1>
           <div className="text-sm text-gray-500">Set your clinic coordinates and opening hours</div>
         </div>
-        <button onClick={save} disabled={saving || loading} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 w-full sm:w-auto">
+        <button onClick={save} disabled={saving || loading} className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 w-full sm:w-auto">
           {saving ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : null}
           Save
         </button>
@@ -403,15 +403,15 @@ export default function ClinicLocationPage() {
         <div className="rounded-3xl bg-white/80 backdrop-blur-sm p-5 shadow ring-1 ring-black/5 space-y-4">
           <div className="text-lg font-semibold" style={{ color: PRIMARY }}>Coordinates</div>
           <div className="grid grid-cols-1 gap-3 relative">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/90 ring-1 ring-gray-200">
+            <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-xl bg-white/90 ring-1 ring-gray-200">
               <span className="text-xs text-gray-500">Clinic name</span>
-              <input value={clinicName} onChange={(e)=>setClinicName(e.target.value)} placeholder="My Vet Clinic" className="flex-1 outline-none bg-transparent text-sm" />
+              <input value={clinicName} onChange={(e)=>setClinicName(e.target.value)} placeholder="My Vet Clinic" className="flex-1 min-w-0 outline-none bg-transparent text-sm" />
             </div>
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/90 ring-1 ring-gray-200">
+            <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-xl bg-white/90 ring-1 ring-gray-200">
               <span className="text-xs text-gray-500">Address</span>
-              <input value={address} onChange={(e)=>setAddress(e.target.value)} placeholder="Search address or place" className="flex-1 outline-none bg-transparent text-sm" />
-              <button onClick={geocode} className="ml-2 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700">Find</button>
-              <button onClick={useMyLocation} className="ml-2 px-3 py-1.5 rounded-lg bg-white ring-1 ring-gray-200 text-xs hover:bg-gray-50">Use my location</button>
+              <input value={address} onChange={(e)=>setAddress(e.target.value)} placeholder="Search address or place" className="flex-1 min-w-0 outline-none bg-transparent text-sm" />
+              <button onClick={geocode} className="ml-auto sm:ml-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700">Find</button>
+              <button onClick={useMyLocation} className="ml-2 px-3 py-2 rounded-lg bg-white ring-1 ring-gray-200 text-sm hover:bg-gray-50">Use my location</button>
             </div>
             {suggestions.length > 0 && (
               <div className="absolute left-0 right-0 top-full mt-1 z-10 rounded-xl bg-white shadow ring-1 ring-black/10 overflow-hidden">
@@ -427,13 +427,13 @@ export default function ClinicLocationPage() {
             )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/90 ring-1 ring-gray-200">
+            <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-xl bg-white/90 ring-1 ring-gray-200">
               <span className="text-xs text-gray-500">Latitude</span>
-              <input value={lat} onChange={(e)=>setLat(e.target.value)} placeholder="14.5995" className="flex-1 outline-none bg-transparent text-sm" />
+              <input value={lat} onChange={(e)=>setLat(e.target.value)} placeholder="14.5995" className="flex-1 min-w-0 outline-none bg-transparent text-sm" />
             </div>
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/90 ring-1 ring-gray-200">
+            <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-xl bg-white/90 ring-1 ring-gray-200">
               <span className="text-xs text-gray-500">Longitude</span>
-              <input value={lon} onChange={(e)=>setLon(e.target.value)} placeholder="120.9842" className="flex-1 outline-none bg-transparent text-sm" />
+              <input value={lon} onChange={(e)=>setLon(e.target.value)} placeholder="120.9842" className="flex-1 min-w-0 outline-none bg-transparent text-sm" />
             </div>
           </div>
           <div className="text-xs text-gray-500">Type your address and click Find to auto-fill coordinates, or paste coordinates manually.</div>
@@ -448,7 +448,7 @@ export default function ClinicLocationPage() {
               <a href={`https://www.openstreetmap.org/?mlat=${encodeURIComponent(lat)}&mlon=${encodeURIComponent(lon)}#map=17/${encodeURIComponent(lat)}/${encodeURIComponent(lon)}`} target="_blank" rel="noreferrer" className="text-sm text-blue-700">Open in OSM</a>
             ) : null}
           </div>
-          <div id="vet-map" className="h-72 rounded-xl overflow-hidden ring-1 ring-gray-200 bg-gray-50" />
+          <div id="vet-map" className="h-60 sm:h-72 lg:h-96 rounded-xl overflow-hidden ring-1 ring-gray-200 bg-gray-50" />
         </div>
       </div>
 
@@ -456,18 +456,26 @@ export default function ClinicLocationPage() {
         <div className="text-lg font-semibold mb-3" style={{ color: PRIMARY }}>Opening hours</div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
           {(["Mon","Tue","Wed","Thu","Fri","Sat","Sun"] as const).map(d => (
-            <div key={d} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/90 ring-1 ring-gray-200">
+            <div key={d} className="flex flex-wrap items-center gap-3 px-3 py-2 rounded-xl bg-white/90 ring-1 ring-gray-200">
               <span className="w-10 text-gray-600">{d}</span>
               <label className="inline-flex items-center gap-1 text-xs text-gray-600">
                 <input type="checkbox" checked={!!hours[d].closed} onChange={(e)=> setHours(h => ({ ...h, [d]: { ...h[d], closed: e.target.checked } }))} /> Closed
               </label>
-              <input type="time" value={hours[d].open} onChange={(e)=> setHours(h => ({ ...h, [d]: { ...h[d], open: e.target.value } }))} disabled={!!hours[d].closed} className="ml-auto outline-none bg-transparent" />
+              <input type="time" value={hours[d].open} onChange={(e)=> setHours(h => ({ ...h, [d]: { ...h[d], open: e.target.value } }))} disabled={!!hours[d].closed} className="ml-auto outline-none bg-transparent w-[5.5rem]" />
               <span className="text-gray-300">–</span>
-              <input type="time" value={hours[d].close} onChange={(e)=> setHours(h => ({ ...h, [d]: { ...h[d], close: e.target.value } }))} disabled={!!hours[d].closed} className="outline-none bg-transparent" />
+              <input type="time" value={hours[d].close} onChange={(e)=> setHours(h => ({ ...h, [d]: { ...h[d], close: e.target.value } }))} disabled={!!hours[d].closed} className="outline-none bg-transparent w-[5.5rem]" />
             </div>
           ))}
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ClinicLocationPage() {
+  return (
+    <Suspense fallback={<div className="text-center py-8">Loading...</div>}>
+      <ClinicLocationPageInner />
+    </Suspense>
   );
 }

@@ -139,7 +139,17 @@ export default function VetDashboardPage() {
         if (rErr) throw rErr;
         setReviews((revs || []) as Review[]);
       } catch (err: any) {
-        await Swal.fire({ icon: "error", title: "Failed to load", text: err?.message || "Please try again." });
+        const msg = String(err?.message || "");
+        const current = `${window.location.pathname}${window.location.search}`;
+        if (/Not authenticated/i.test(msg)) {
+          window.location.href = `/login?redirect=${encodeURIComponent(current)}`;
+          return;
+        }
+        if (/Veterinarian account required/i.test(msg)) {
+          window.location.href = "/";
+          return;
+        }
+        await Swal.fire({ icon: "error", title: "Failed to load", text: msg || "Please try again." });
       } finally {
         setLoading(false);
       }
@@ -206,7 +216,7 @@ export default function VetDashboardPage() {
           <QuickActions />
 
           <RestrictedAccessOverlay isRestricted={isPending}>
-            <div className="grid lg:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               <UpcomingAppointments
                 appointments={appointments}
                 loading={loading}

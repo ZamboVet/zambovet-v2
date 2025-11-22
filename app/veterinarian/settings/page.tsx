@@ -101,7 +101,8 @@ export default function VetSettingsPage() {
         const user = auth.user;
         if (!user) {
           await Swal.fire({ icon: "warning", title: "Sign in required", text: "Please sign in to continue." });
-          window.location.href = "/login";
+          const current = `${window.location.pathname}${window.location.search}`;
+          window.location.href = `/login?redirect=${encodeURIComponent(current)}`;
           return;
         }
         const { data: p, error: pErr } = await supabase.from("profiles").select("id,email,full_name,phone,user_role,verification_status").eq("id", user.id).single();

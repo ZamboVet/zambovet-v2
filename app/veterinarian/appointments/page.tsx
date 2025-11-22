@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Swal from "sweetalert2";
 import { supabase } from "../../../lib/supabaseClient";
@@ -26,7 +26,7 @@ const PRIMARY = "#2563eb";
 
 const PAGE_SIZE = 10;
 
-export default function VetAppointmentsPage() {
+function VetAppointmentsPageInner() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [vet, setVet] = useState<Vet | null>(null);
   const [items, setItems] = useState<Appointment[]>([]);
@@ -277,7 +277,7 @@ export default function VetAppointmentsPage() {
 
   return (
     <div className={`${poppins.className} space-y-6`}>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold" style={{ color: PRIMARY }}>Appointments</h1>
           <p className="text-sm text-gray-500">Manage and track your upcoming and past consultations</p>
@@ -305,8 +305,8 @@ export default function VetAppointmentsPage() {
         ))}
       </div>
 
-      <div className="flex flex-col xl:flex-row xl:items-center gap-3">
-        <div className="flex items-center gap-2 px-2 py-1 rounded-xl bg-white/80 ring-1 ring-gray-100">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2 px-2 py-1 rounded-xl bg-white/80 ring-1 ring-gray-100 min-w-max">
           <FunnelIcon className="w-4 h-4 text-gray-500" />
           <select value={status} onChange={(e) => { setPage(1); setStatus(e.target.value); }} className="text-sm outline-none bg-transparent">
             <option value="all">All</option>
@@ -317,28 +317,28 @@ export default function VetAppointmentsPage() {
           </select>
         </div>
         {/* date range filter removed */}
-        <div className="flex items-center gap-2 px-2 py-1 rounded-xl bg-white/80 ring-1 ring-gray-100">
+        <div className="flex items-center gap-2 px-2 py-1 rounded-xl bg-white/80 ring-1 ring-gray-100 min-w-max">
           <span className="text-xs text-gray-500">Owner</span>
           <select value={ownerId as any} onChange={(e)=>{ setPage(1); setOwnerId(e.target.value === 'all' ? 'all' : Number(e.target.value)); }} className="text-sm outline-none bg-transparent">
             <option value="all">All</option>
             {Object.entries(ownersMap).map(([id, o])=> (<option key={id} value={id}>{o.name}</option>))}
           </select>
         </div>
-        <div className="flex items-center gap-2 px-2 py-1 rounded-xl bg-white/80 ring-1 ring-gray-100">
+        <div className="flex items-center gap-2 px-2 py-1 rounded-xl bg-white/80 ring-1 ring-gray-100 min-w-max">
           <span className="text-xs text-gray-500">Patient</span>
           <select value={patientId as any} onChange={(e)=>{ setPage(1); setPatientId(e.target.value === 'all' ? 'all' : Number(e.target.value)); }} className="text-sm outline-none bg-transparent">
             <option value="all">All</option>
             {Object.entries(patientsMap).map(([id, p])=> (<option key={id} value={id}>{p.name}</option>))}
           </select>
         </div>
-        <div className="flex items-center gap-2 px-2 py-1 rounded-xl bg-white/80 ring-1 ring-gray-100">
+        <div className="flex items-center gap-2 px-2 py-1 rounded-xl bg-white/80 ring-1 ring-gray-100 min-w-max">
           <span className="text-xs text-gray-500">Clinic</span>
           <select value={clinicId as any} onChange={(e)=>{ setPage(1); setClinicId(e.target.value === 'all' ? 'all' : Number(e.target.value)); }} className="text-sm outline-none bg-transparent">
             <option value="all">All</option>
             {Object.entries(clinicsMap).map(([id, c])=> (<option key={id} value={id}>{c.name}</option>))}
           </select>
         </div>
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/80 ring-1 ring-gray-100 flex-1">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/80 ring-1 ring-gray-100 flex-1 min-w-0">
           <MagnifyingGlassIcon className="w-4 h-4 text-gray-500" />
           <input value={query} onChange={(e) => { setPage(1); setQuery(e.target.value); }} placeholder="Search owner/patient/clinic/reason" className="w-full outline-none text-sm bg-transparent" />
         </div>
@@ -351,9 +351,11 @@ export default function VetAppointmentsPage() {
         <div className="rounded-2xl bg-white/70 backdrop-blur shadow ring-1 ring-gray-100 p-4">
           {(() => {
             const byDay: Record<string, Appointment[]> = {};
-            items.forEach(a=>{ (byDay[a.appointment_date] ||= []).push(a); });
+            items.forEach(a => { (byDay[a.appointment_date] ||= []).push(a); });
             const days = Object.keys(byDay).sort();
-            if (days.length === 0) return <div className="text-sm text-gray-600">No appointments in selected range.</div>;
+            if (days.length === 0) {
+              return <div className="text-sm text-gray-600">No appointments in selected range.</div>;
+            }
             return (
               <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {days.map(d => (
@@ -378,16 +380,16 @@ export default function VetAppointmentsPage() {
                             <button onClick={() => showDetails(a)} className="px-2.5 py-1 rounded-lg bg-white ring-1 ring-gray-200 text-xs hover:bg-gray-50">Details</button>
                             <button onClick={() => reschedule(a)} className="px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700 text-xs hover:bg-gray-200 ring-1 ring-gray-300">Reschedule</button>
                             {a.status === 'pending' && (
-                              <button 
-                                onClick={() => updateStatus(a.id, a.status, "confirmed", "Confirm this appointment?")}
+                              <button
+                                onClick={() => updateStatus(a.id, a.status, 'confirmed', 'Confirm this appointment?')}
                                 className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-xs hover:bg-emerald-700 font-medium"
                               >
                                 Confirm
                               </button>
                             )}
                             {canTransition(a.status, 'cancelled') && (
-                              <button 
-                                onClick={() => updateStatus(a.id, a.status, "cancelled", "Cancel this appointment?")}
+                              <button
+                                onClick={() => updateStatus(a.id, a.status, 'cancelled', 'Cancel this appointment?')}
                                 className="px-2.5 py-1 rounded-lg bg-red-50 text-red-700 text-xs hover:bg-red-100 ring-1 ring-red-200"
                               >
                                 Cancel
@@ -404,17 +406,14 @@ export default function VetAppointmentsPage() {
           })()}
         </div>
       ) : (
-      <div className="rounded-2xl bg-white/70 backdrop-blur shadow ring-1 ring-gray-100">
-        {loading ? (
-          <ul className="divide-y animate-pulse">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <li key={i} className="p-4 flex items-center justify-between">
-                <div className="space-y-2">
-                  <div className="h-4 w-56 bg-gray-200 rounded" />
-                  <div className="h-3 w-40 bg-gray-100 rounded" />
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-6 w-16 bg-gray-100 rounded-full" />
+        <div className="rounded-2xl bg-white/70 backdrop-blur shadow ring-1 ring-gray-100">
+          {loading ? (
+            <ul className="divide-y animate-pulse">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <li key={i} className="p-4 flex items-center justify-between">
+                  <div className="space-y-2">
+                    <div className="h-4 w-56 bg-gray-200 rounded" />
+                    <div className="h-3 w-40 bg-gray-100 rounded" />
                   <div className="h-8 w-20 bg-gray-100 rounded" />
                 </div>
               </li>
@@ -432,7 +431,7 @@ export default function VetAppointmentsPage() {
           <ul className="divide-y">
             {items.map(a => (
               <li key={a.id} className="p-4">
-                <div className="rounded-xl bg-white shadow-sm ring-1 ring-gray-100 p-4 flex items-center justify-between gap-6 hover:shadow-md transition">
+                <div className="rounded-xl bg-white shadow-sm ring-1 ring-gray-100 p-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between hover:shadow-md transition">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`px-2.5 py-1 rounded-full text-xs ring-1 ${a.status === 'confirmed' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : a.status === 'pending' ? 'bg-amber-50 text-amber-700 ring-amber-200' : a.status === 'completed' ? 'bg-blue-50 text-blue-700 ring-blue-200' : 'bg-gray-50 text-gray-600 ring-gray-200'}`}>{a.status.replace('_',' ')}</span>
@@ -444,16 +443,16 @@ export default function VetAppointmentsPage() {
                     <div className="text-sm text-gray-700">{formatTime(a.appointment_time)}</div>
                     <div className="text-sm text-gray-600 mt-1 truncate">Reason for consultation: {a.reason_for_visit || 'Consultation'}</div>
                   </div>
-                  <div className="flex flex-col items-end gap-2 shrink-0">
+                  <div className="flex flex-col gap-2 items-stretch sm:items-end shrink-0 w-full sm:w-auto">
                     {/* Primary Action - Consult */}
                     <div className="flex items-center gap-2">
                       {a.status === 'completed' ? (
-                        <span title="Consultation done" className="px-4 py-2 rounded-lg bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 text-sm font-medium">Completed</span>
+                        <span title="Consultation done" className="px-4 py-2 rounded-lg bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 text-sm font-medium w-full sm:w-auto text-center">Completed</span>
                       ) : (
                         <Link 
                           title="Open consultation" 
                           href={`/veterinarian/consultations/${a.id}`} 
-                          className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-sm font-medium shadow-sm hover:shadow transition"
+                          className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-sm font-medium shadow-sm hover:shadow transition w-full sm:w-auto text-center"
                         >
                           Start Consultation
                         </Link>
@@ -466,7 +465,7 @@ export default function VetAppointmentsPage() {
                         <button
                           title="Confirm this appointment"
                           onClick={() => updateStatus(a.id, a.status, "confirmed", "Confirm this appointment?")}
-                          className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-medium shadow-sm hover:shadow transition"
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-medium shadow-sm hover:shadow transition w-full sm:w-auto"
                         >
                           Confirm
                         </button>
@@ -475,7 +474,7 @@ export default function VetAppointmentsPage() {
                         <button
                           title="Mark appointment as completed"
                           onClick={() => updateStatus(a.id, a.status, "completed", "Mark as completed?")}
-                          className="px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-sm font-medium shadow-sm hover:shadow transition"
+                          className="px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-sm font-medium shadow-sm hover:shadow transition w-full sm:w-auto"
                         >
                           Complete
                         </button>
@@ -487,14 +486,14 @@ export default function VetAppointmentsPage() {
                       <button 
                         title="View details" 
                         onClick={() => showDetails(a)} 
-                        className="px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 ring-1 ring-gray-300 text-sm transition"
+                        className="px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 ring-1 ring-gray-300 text-sm transition w-full sm:w-auto"
                       >
                         Details
                       </button>
                       <button 
                         title="Reschedule appointment" 
                         onClick={() => reschedule(a)} 
-                        className="px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 ring-1 ring-gray-300 text-sm transition"
+                        className="px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 ring-1 ring-gray-300 text-sm transition w-full sm:w-auto"
                       >
                         Reschedule
                       </button>
@@ -502,7 +501,7 @@ export default function VetAppointmentsPage() {
                         <button
                           title="Cancel appointment"
                           onClick={() => updateStatus(a.id, a.status, "cancelled", "Cancel this appointment?")}
-                          className="px-3 py-1.5 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 ring-1 ring-red-200 text-sm font-medium transition"
+                          className="px-3 py-1.5 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 ring-1 ring-red-200 text-sm font-medium transition w-full sm:w-auto"
                         >
                           Cancel
                         </button>
@@ -514,7 +513,7 @@ export default function VetAppointmentsPage() {
             ))}
           </ul>
         )}
-      </div>
+        </div>
       )}
 
       <div className="flex items-center justify-between text-sm">
@@ -525,5 +524,13 @@ export default function VetAppointmentsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function VetAppointmentsPage() {
+  return (
+    <Suspense fallback={<div className="text-center py-8">Loading...</div>}>
+      <VetAppointmentsPageInner />
+    </Suspense>
   );
 }

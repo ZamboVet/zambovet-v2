@@ -32,11 +32,25 @@ export async function getVetAccessControl(): Promise<VetAccessControl> {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('verification_status')
+      .select('user_role,verification_status')
       .eq('id', user.id)
       .maybeSingle();
 
-    const status = profile?.verification_status || 'pending';
+    const role = (profile as any)?.user_role || null;
+    if (role !== 'veterinarian') {
+      return {
+        isPending: false,
+        isApproved: false,
+        canAccessAppointments: false,
+        canAccessPatients: false,
+        canAccessReviews: false,
+        canAccessSettings: false,
+        canEditClinicLocation: false,
+        restrictionMessage: 'Veterinarian account required',
+      };
+    }
+
+    const status = (profile as any)?.verification_status || 'pending';
     const isPending = status === 'pending';
     const isApproved = status === 'approved';
 

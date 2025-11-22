@@ -77,7 +77,12 @@ export default function PetOwnerLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!authReady) return;
     if (!authed) {
-      router.replace("/login");
+      try {
+        const current = `${window.location.pathname}${window.location.search}`;
+        router.replace(`/login?redirect=${encodeURIComponent(current)}`);
+      } catch {
+        router.replace("/login");
+      }
     }
   }, [authReady, authed, router]);
   if (!authReady) {

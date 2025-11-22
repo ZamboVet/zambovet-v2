@@ -30,9 +30,10 @@ export async function middleware(req: NextRequest) {
 
   // Determine which role is required based on path
   const path = nextUrl.pathname || "/";
-  let requiredRole: "admin" | "pet_owner" | null = null;
+  let requiredRole: "admin" | "pet_owner" | "veterinarian" | null = null;
   if (path.startsWith("/admin")) requiredRole = "admin";
   else if (path.startsWith("/pet_owner")) requiredRole = "pet_owner";
+  else if (path.startsWith("/veterinarian")) requiredRole = "veterinarian";
 
   try {
     const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
@@ -82,5 +83,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/pet_owner/:path*"],
+  matcher: ["/admin/:path*", "/pet_owner/:path*", "/veterinarian/:path*"],
 };

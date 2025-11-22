@@ -4,11 +4,33 @@ export function sanitizeName(input: string): string {
   return noRepeats.trim().replace(/\s{2,}/g, " ");
 }
 
+export function sanitizeNameLoose(input: string): string {
+  const onlyAllowed = input.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ' -]/g, "");
+  const noRepeats = onlyAllowed.replace(/([ '\-])\1+/g, "$1");
+  return noRepeats.replace(/\s{2,}/g, " ");
+}
+
 export function validateName(input: string): { ok: boolean; error?: string } {
   const value = sanitizeName(input);
   if (!value) return { ok: false, error: "Name is required." };
   if (value.length < 2) return { ok: false, error: "Name must be at least 2 characters." };
   if (value.length > 80) return { ok: false, error: "Name must be 80 characters or less." };
+  const banned = [
+    "fuck","shit","bitch","whore","slut","asshole","bastard","dick","pussy","cunt",
+    "nigger","nigga","faggot","retard","spic","chink","kike","wetback","gook"
+  ];
+  const norm = value
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z' -]+/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  const tokens = norm.split(" ");
+  for (const w of banned) {
+    if (norm.includes(w) || tokens.includes(w)) {
+      return { ok: false, error: "Please enter an appropriate name." };
+    }
+  }
   const pattern = /^[A-Za-zÀ-ÖØ-öø-ÿ]+(?:[ '\-][A-Za-zÀ-ÖØ-öø-ÿ]+)*$/;
   if (!pattern.test(value)) return { ok: false, error: "Use letters, spaces, hyphens or apostrophes only." };
   return { ok: true };

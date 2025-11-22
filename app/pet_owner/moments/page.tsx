@@ -7,6 +7,9 @@ import { supabase } from "../../../lib/supabaseClient";
 import { swalConfirmColor } from "../../../lib/ui/tokens";
 import { PhotoIcon, ChatBubbleOvalLeftIcon, HandThumbUpIcon, PlusIcon, EllipsisHorizontalIcon, PencilIcon, TrashIcon, ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
 
+const MAX_POST_LEN = 2000;
+const MAX_COMMENT_LEN = 1000;
+
 type Owner = { id: number; user_id: string; full_name?: string | null };
 
 type Post = {
@@ -39,6 +42,7 @@ export default function MomentsFeedPage() {
   const PAGE_SIZE = 20;
   const [followingOnly, setFollowingOnly] = useState(false);
   const [followingIds, setFollowingIds] = useState<number[]>([]);
+  const [authorized, setAuthorized] = useState(false);
 
   const [content, setContent] = useState("");
   const [petId, setPetId] = useState<number | null>(null);
@@ -50,33 +54,31 @@ export default function MomentsFeedPage() {
 
   const filesInputRef = useRef<HTMLInputElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  const channelRef = useRef<any>(null);
+  const debounceRef = useRef<any>(null);
+  const offsetRef = useRef<number>(0);
 
   useEffect(() => {
     (async () => {
       try {
         const { data: auth } = await supabase.auth.getUser();
         const uid = auth.user?.id;
-        if (!uid) { await Swal.fire({ icon: "warning", title: "Sign in required", confirmButtonColor: swalConfirmColor }); return; }
+        if (!uid) { window.location.href = `/login?redirect=${encodeURIComponent('/pet_owner/moments')}`; return; }
+        const { data: prof } = await supabase.from('profiles').select('user_role').eq('id', uid).maybeSingle();
+        const role = (prof as any)?.user_role;
+        if (role !== 'pet_owner') { window.location.href = '/'; return; }
         const { data: ownerRow } = await supabase.from("pet_owner_profiles").select("id,full_name,user_id").eq("user_id", uid).maybeSingle();
-        if (!ownerRow) { await Swal.fire({ icon: "error", title: "Owner profile missing", confirmButtonColor: swalConfirmColor }); return; }
+        if (!ownerRow) { window.location.href = '/pet_owner/settings'; return; }
         setOwner(ownerRow as any);
+        setAuthorized(true);
         const { data: pets } = await supabase.from("patients").select("id,name").eq("owner_id", (ownerRow as any).id).eq("is_active", true).order("name");
         setPatients((pets || []) as any);
-        // load following list
         try {
           const { data: fol } = await supabase.from('owner_follows').select('following_owner_id').eq('follower_owner_id', (ownerRow as any).id);
           const ids = (fol || []).map((r: any) => Number(r.following_owner_id)).filter((n: any) => !isNaN(n));
           setFollowingIds(ids);
         } catch {}
         await fetchFeed((ownerRow as any).id, 0, true);
-        // realtime
-        const ch = supabase
-          .channel("moments-feed")
-          .on("postgres_changes", { event: "*", schema: "public", table: "pet_posts" }, () => fetchFeed((ownerRow as any).id, 0, true))
-          .on("postgres_changes", { event: "*", schema: "public", table: "pet_post_reactions" }, () => fetchFeed((ownerRow as any).id, 0, true))
-          .on("postgres_changes", { event: "*", schema: "public", table: "pet_post_comments" }, () => fetchFeed((ownerRow as any).id, 0, true))
-          .subscribe();
-        return () => { try { supabase.removeChannel(ch); } catch {} };
       } catch (e: any) {
         await Swal.fire({ icon: "error", title: "Failed to load", text: e?.message, confirmButtonColor: swalConfirmColor });
       } finally {
@@ -86,9 +88,49 @@ export default function MomentsFeedPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => { offsetRef.current = offset; }, [offset]);
+
+  // Close lightbox with Escape
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setLightbox(null); };
+    if (lightbox) document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [lightbox]);
+
+  useEffect(() => {
+    if (!owner?.id) return;
+    const ch = supabase
+      .channel('moments-feed')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pet_posts' }, () => {
+        if (debounceRef.current) return;
+        debounceRef.current = setTimeout(() => {
+          // Only refresh the first page if user hasn't paged far
+          if (offsetRef.current <= PAGE_SIZE) fetchFeed(owner.id, 0, true);
+          debounceRef.current = null;
+        }, 500);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pet_post_reactions' }, () => {
+        if (debounceRef.current) return;
+        debounceRef.current = setTimeout(() => {
+          if (offsetRef.current <= PAGE_SIZE) fetchFeed(owner.id, 0, true);
+          debounceRef.current = null;
+        }, 500);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pet_post_comments' }, () => {
+        if (debounceRef.current) return;
+        debounceRef.current = setTimeout(() => {
+          if (offsetRef.current <= PAGE_SIZE) fetchFeed(owner.id, 0, true);
+          debounceRef.current = null;
+        }, 500);
+      })
+      .subscribe();
+    channelRef.current = ch;
+    return () => { try { supabase.removeChannel(ch); } catch {} };
+  }, [owner?.id]);
+
   const fetchFeed = async (ownerId: number, startOffset = 0, reset = false) => {
     try {
-      // Newest posts: public + own (RLS enforces access)
+      // Fetch posts: public + own + following (visibility filtering applied client-side)
       let q = supabase
         .from("pet_posts")
         .select("id,pet_owner_id,patient_id,content,media_count,visibility,created_at")
@@ -98,7 +140,14 @@ export default function MomentsFeedPage() {
         q = q.in('pet_owner_id', list.length > 0 ? list : [ownerId]);
       }
       const { data: raw } = await q.range(startOffset, startOffset + PAGE_SIZE - 1);
-      const rows = (raw || []) as any[];
+      // Filter by visibility: show public posts, own posts, and posts from following (if owners_only)
+      const filtered = (raw || []).filter((r: any) => {
+        if (r.pet_owner_id === ownerId) return true; // always show own posts
+        if (r.visibility === 'public') return true; // show public posts
+        if (r.visibility === 'owners_only' && followingIds.includes(r.pet_owner_id)) return true; // show owners_only from following
+        return false; // hide private posts and owners_only from non-following
+      });
+      const rows = filtered as any[];
       if (rows.length === 0) { if (reset) setPosts([]); return; }
       const ids = rows.map(r => r.id);
       // fetch media
@@ -178,9 +227,45 @@ export default function MomentsFeedPage() {
     }
   };
 
+  const addComment = async (postId: number, text: string) => {
+    if (!owner) return;
+    if (!text.trim()) return;
+    if (text.length > MAX_COMMENT_LEN) {
+      await Swal.fire({ icon: 'warning', title: `Max ${MAX_COMMENT_LEN} characters`, confirmButtonColor: swalConfirmColor });
+      return;
+    }
+    try {
+      const tmpId = -Date.now();
+      const optimistic = { id: tmpId, pet_owner_id: owner.id, content: text.trim(), created_at: new Date().toISOString(), owner_name: (owner as any)?.full_name || 'Owner', owner_avatar: null } as any;
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: [ ...(p.comments || []), optimistic ], comments_count: (p.comments_count || 0) + 1 } : p));
+      await supabase.from("pet_post_comments").insert({ post_id: postId, pet_owner_id: owner.id, content: text.trim() });
+      const thePost = posts.find(p => p.id === postId);
+      if (thePost && thePost.pet_owner_id !== owner.id) {
+        const { data: target } = await supabase.from('pet_owner_profiles').select('user_id').eq('id', thePost.pet_owner_id).maybeSingle();
+        const targetUid = (target as any)?.user_id as string | undefined;
+        if (targetUid) {
+          await supabase.from('notifications').insert({ user_id: targetUid as any, title: 'New comment', message: 'Someone commented on your post', notification_type: 'moment' });
+        }
+      }
+    } catch (e: any) {
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: (p.comments || []).filter(c => (c as any).id > 0), comments_count: Math.max(0, (p.comments_count || 1) - 1) } : p));
+      await Swal.fire({ icon: 'error', title: 'Failed to comment', text: e?.message || 'Please try again.', confirmButtonColor: swalConfirmColor });
+    }
+  };
+
+  const followOwner = async (targetOwnerId: number) => {
+    if (!owner) return;
+    try {
+      await supabase.from('owner_follows').insert({ follower_owner_id: owner.id, following_owner_id: targetOwnerId });
+      setFollowingIds(prev => Array.from(new Set([...prev, targetOwnerId])));
+    } catch (e: any) {
+      await Swal.fire({ icon: 'error', title: 'Failed to follow', text: e?.message || 'Please try again.', confirmButtonColor: swalConfirmColor });
+    }
+  };
+
   const onFilesPicked = (filesList: FileList | null) => {
     if (!filesList) return;
-    const arr = Array.from(filesList);
+    const arr = Array.from(filesList).filter((f) => (f.type?.startsWith('image/') || f.type?.startsWith('video/')));
     const next = [...files, ...arr].slice(0, 6);
     for (const f of next) {
       if (f.size > 5 * 1024 * 1024) {
@@ -198,6 +283,10 @@ export default function MomentsFeedPage() {
     if (!owner) return;
     if (!content.trim() && files.length === 0) {
       await Swal.fire({ icon: "warning", title: "Add text or images", confirmButtonColor: swalConfirmColor });
+      return;
+    }
+    if (content.length > MAX_POST_LEN) {
+      await Swal.fire({ icon: 'warning', title: `Max ${MAX_POST_LEN} characters`, confirmButtonColor: swalConfirmColor });
       return;
     }
     setCreating(true);
@@ -239,7 +328,9 @@ export default function MomentsFeedPage() {
     try {
       const me = owner.id;
       const thePost = posts.find(p => p.id === postId);
-      if (thePost?.reacted_by_me) {
+      const wasReacted = !!thePost?.reacted_by_me;
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, reacted_by_me: !wasReacted, reactions_count: (p.reactions_count || 0) + (wasReacted ? -1 : 1) } : p));
+      if (wasReacted) {
         // remove reaction
         await supabase.from("pet_post_reactions").delete().eq("post_id", postId).eq("pet_owner_id", me);
       } else {
@@ -253,34 +344,10 @@ export default function MomentsFeedPage() {
           }
         }
       }
-    } catch {}
-  };
-
-  const addComment = async (postId: number, text: string) => {
-    if (!owner) return;
-    if (!text.trim()) return;
-    try {
-      await supabase.from("pet_post_comments").insert({ post_id: postId, pet_owner_id: owner.id, content: text.trim() });
-      // notify post owner (if not me)
-      const thePost = posts.find(p => p.id === postId);
-      if (thePost && thePost.pet_owner_id !== owner.id) {
-        const { data: target } = await supabase.from('pet_owner_profiles').select('user_id').eq('id', thePost.pet_owner_id).maybeSingle();
-        const targetUid = (target as any)?.user_id as string | undefined;
-        if (targetUid) {
-          await supabase.from('notifications').insert({ user_id: targetUid as any, title: 'New comment', message: 'Someone commented on your post', notification_type: 'moment' });
-        }
-      }
-    } catch (e) {
-      await Swal.fire({ icon: "error", title: "Failed to comment", confirmButtonColor: swalConfirmColor });
+    } catch (e: any) {
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, reacted_by_me: !p.reacted_by_me, reactions_count: (p.reactions_count || 0) + (p.reacted_by_me ? -1 : 1) } : p));
+      await Swal.fire({ icon: 'error', title: 'Failed to react', text: e?.message || 'Please try again.', confirmButtonColor: swalConfirmColor });
     }
-  };
-
-  const followOwner = async (targetOwnerId: number) => {
-    if (!owner) return;
-    try {
-      await supabase.from('owner_follows').insert({ follower_owner_id: owner.id, following_owner_id: targetOwnerId });
-      setFollowingIds(prev => Array.from(new Set([...prev, targetOwnerId])));
-    } catch {}
   };
 
   const unfollowOwner = async (targetOwnerId: number) => {
@@ -288,7 +355,9 @@ export default function MomentsFeedPage() {
     try {
       await supabase.from('owner_follows').delete().eq('follower_owner_id', owner.id).eq('following_owner_id', targetOwnerId);
       setFollowingIds(prev => prev.filter(id => id !== targetOwnerId));
-    } catch {}
+    } catch (e: any) {
+      await Swal.fire({ icon: 'error', title: 'Failed to unfollow', text: e?.message || 'Please try again.', confirmButtonColor: swalConfirmColor });
+    }
   };
 
   const deletePost = async (postId: number) => {
@@ -311,6 +380,8 @@ export default function MomentsFeedPage() {
       await Swal.fire({ icon: 'error', title: 'Failed to update', text: e?.message, confirmButtonColor: swalConfirmColor });
     }
   };
+
+  if (!authorized) return null;
 
   return (
     <div className="w-full h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 px-3 sm:px-4 lg:px-6 py-4 sm:py-6 overflow-y-auto flex flex-col">
@@ -339,8 +410,10 @@ export default function MomentsFeedPage() {
                 placeholder="Share a moment about your pet..."
                 rows={3}
                 ref={composerRef}
+                maxLength={MAX_POST_LEN}
                 className="w-full px-2 sm:px-3 py-2 text-sm sm:text-base rounded-lg sm:rounded-xl border border-neutral-200 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-shadow"
               />
+              <div className="mt-1 text-[11px] text-neutral-500 text-right">{content.length}/{MAX_POST_LEN}</div>
               <div className="mt-3 flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 sm:gap-3">
                 <select value={petId || ""} onChange={(e)=> setPetId(e.target.value ? Number(e.target.value) : null)} className="w-full sm:w-auto px-2 sm:px-3 py-2 text-xs sm:text-sm rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 hover:ring-neutral-300 transition-all">
                   <option value="">Tag a pet (optional)</option>
@@ -446,8 +519,9 @@ export default function MomentsFeedPage() {
 
       {/* Lightbox */}
       {lightbox && (
-        <div className="fixed inset-0 z-50 bg-black/90 grid place-items-center p-2 sm:p-4" onClick={()=> setLightbox(null)}>
-          <div className="max-w-5xl w-full" onClick={(e)=> e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 bg-black/90 grid place-items-center p-2 sm:p-4" role="dialog" aria-modal="true" aria-label="Media viewer" onClick={()=> setLightbox(null)}>
+          <div className="max-w-5xl w-full relative" onClick={(e)=> e.stopPropagation()}>
+            <button onClick={()=> setLightbox(null)} aria-label="Close viewer" className="absolute top-2 right-2 px-3 py-2 rounded-md bg-white/20 text-white hover:bg-white/30">✕</button>
             {lightbox.type === 'video' ? (
               <video src={lightbox.url} controls className="w-full max-h-[90vh] rounded-lg sm:rounded-xl"/>
             ) : (
@@ -610,6 +684,8 @@ function PostCard({ post, myId, onToggleLike, onAddComment, onEdit, onDelete, is
         <div className="flex items-center gap-1 sm:gap-2">
           <button
             onClick={onToggleLike}
+            aria-label={post.reacted_by_me ? 'Unlike' : 'Like'}
+            title={post.reacted_by_me ? 'Unlike' : 'Like'}
             className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg font-medium text-xs sm:text-sm transition-all active:scale-95 ${
               post.reacted_by_me
                 ? 'bg-blue-600 text-white shadow-sm hover:shadow'
@@ -621,6 +697,8 @@ function PostCard({ post, myId, onToggleLike, onAddComment, onEdit, onDelete, is
           </button>
           <button
             onClick={() => setShowCommentBox(!showCommentBox)}
+            aria-label="Comment"
+            title="Comment"
             className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg font-medium text-xs sm:text-sm bg-white ring-1 ring-neutral-200 text-neutral-700 hover:bg-neutral-50 hover:ring-neutral-300 transition-all active:scale-95"
           >
             <ChatBubbleOvalLeftIcon className="w-4 h-4" />
@@ -632,13 +710,13 @@ function PostCard({ post, myId, onToggleLike, onAddComment, onEdit, onDelete, is
       {/* Recent Comments */}
       {post.comments && post.comments.length > 0 && (
         <div className="px-3 sm:px-4 py-3 border-t border-neutral-100/50 bg-neutral-50/20 space-y-2 sm:space-y-2.5">
-          {post.comments.map(c => (
+          {post.comments.map((c) => (
             <div key={c.id} className="flex items-start gap-2 sm:gap-2.5">
               <div className="h-6 w-6 sm:h-7 sm:w-7 rounded-full overflow-hidden bg-gradient-to-br from-blue-400 to-blue-500 text-white flex-shrink-0 grid place-items-center text-xs font-bold">
                 {c.owner_avatar ? (
                   <img src={c.owner_avatar} alt="avatar" className="w-full h-full object-cover" />
                 ) : (
-                  <span>{(c.owner_name||'O').slice(0,1).toUpperCase()}</span>
+                  <span>{(c.owner_name || 'O').slice(0, 1).toUpperCase()}</span>
                 )}
               </div>
               <div className="flex-1 min-w-0">
@@ -664,7 +742,7 @@ function PostCard({ post, myId, onToggleLike, onAddComment, onEdit, onDelete, is
           <div className="flex items-end gap-2">
             <textarea
               value={comment}
-              onChange={(e)=> setComment(e.target.value)}
+              onChange={(e) => setComment(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -675,17 +753,23 @@ function PostCard({ post, myId, onToggleLike, onAddComment, onEdit, onDelete, is
                 }
               }}
               placeholder="Add a comment..."
+              maxLength={MAX_COMMENT_LEN}
               className="flex-1 px-2.5 sm:px-3 py-2 text-xs sm:text-sm rounded-lg border border-neutral-200 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
               rows={1}
             />
             <button
-              onClick={()=> { if (!comment.trim()) return; onAddComment(comment); setComment(""); }}
+              onClick={() => {
+                if (!comment.trim()) return;
+                onAddComment(comment);
+                setComment("");
+              }}
               disabled={!comment.trim()}
               className="px-2.5 sm:px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 active:scale-95 text-xs sm:text-sm font-medium shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Post
             </button>
           </div>
+          <div className="mt-1 text-[11px] text-neutral-500">{comment.length}/{MAX_COMMENT_LEN}</div>
         </div>
       )}
     </div>
