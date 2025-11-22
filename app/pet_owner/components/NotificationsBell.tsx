@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { BellIcon, CheckIcon } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import { supabase } from "../../../lib/supabaseClient";
+import { usePushNotifications } from "../../../lib/hooks/usePushNotifications";
 
 export type OwnerNotification = {
   id: string;
@@ -28,6 +29,9 @@ export default function NotificationsBell() {
   const [items, setItems] = useState<OwnerNotification[]>([]);
   const btnRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  
+  // Initialize push notifications
+  usePushNotifications();
 
   // load owner id and fetch notifications from Supabase
   useEffect(() => {
