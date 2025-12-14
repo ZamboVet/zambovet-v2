@@ -38,43 +38,34 @@ export async function getCurrentVet(): Promise<CurrentVetResult> {
   if (vErr && vErr.code !== "PGRST116") throw vErr;
 
   let vet = vetData as Vet | null;
+  
+  // Auto-create vet record for approved profiles that don't have one yet
+  // This handles the case where admin approved the vet but record wasn't created
   if (!vet && p.verification_status === "approved") {
-    // Create a placeholder vet record for approved profiles
     const displayName = p.full_name || p.email || "Veterinarian";
-    console.log(`[getCurrentVet] Creating vet record for approved profile: ${p.id}`);
     
-    // Try insert first; if unique violation occurs, fetch existing row
-    const { data: created, error: cErr } = await supabase
+    // Use upsert with onConflict to handle race conditions atomically
+    // If another process creates the record simultaneously, this will just return the existing one
+    const { data: upserted, error: uErr } = await supabase
       .from("veterinarians")
-      .insert({ user_id: p.id, full_name: displayName, is_available: false })
+      .upsert(
+        { user_id: p.id, full_name: displayName, is_available: false },
+        { onConflict: 'user_id', ignoreDuplicates: true }
+      )
       .select("id,user_id,full_name,specialization,clinic_id,is_available,license_number,average_rating")
       .maybeSingle();
     
-    if (cErr) {
-      // 23505 = unique violation (another process created it); fetch latest
-      if ((cErr as any).code === '23505') {
-        console.log(`[getCurrentVet] Unique constraint violation, fetching existing record for user: ${p.id}`);
-        const { data: existing, error: fErr } = await supabase
-          .from("veterinarians")
-          .select("id,user_id,full_name,specialization,clinic_id,is_available,license_number,average_rating")
-          .eq("user_id", p.id)
-          .order("id", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (fErr) {
-          console.error(`[getCurrentVet] Error fetching existing vet after conflict: ${fErr.message}`);
-          throw fErr;
-        }
-        vet = existing as Vet;
-        console.log(`[getCurrentVet] Successfully fetched existing vet record: ${vet?.id}`);
-      } else {
-        // If insertion failed due to any other reason, log and rethrow
-        console.error(`[getCurrentVet] Unexpected error creating vet: ${cErr.message}`);
-        throw cErr;
-      }
+    if (uErr) {
+      console.error(`[getCurrentVet] Error upserting vet record: ${uErr.message}`);
+      // If upsert fails, try to fetch existing record as fallback
+      const { data: existing } = await supabase
+        .from("veterinarians")
+        .select("id,user_id,full_name,specialization,clinic_id,is_available,license_number,average_rating")
+        .eq("user_id", p.id)
+        .maybeSingle();
+      vet = existing as Vet | null;
     } else {
-      vet = created as Vet;
-      console.log(`[getCurrentVet] Successfully created new vet record: ${vet?.id}`);
+      vet = upserted as Vet | null;
     }
   }
 

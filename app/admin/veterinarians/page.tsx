@@ -127,12 +127,29 @@ export default function AdminVetsPage() {
         const { data: prof } = await supabase.from('profiles').select('id').eq('email', app.email).maybeSingle();
         const uid = (prof as any)?.id as string | undefined;
         if (uid) {
-          const { data: existingVet } = await supabase.from('veterinarians').select('id').eq('user_id', uid).maybeSingle();
+          const { data: existingVet } = await supabase.from('veterinarians').select('id,clinic_id,license_number').eq('user_id', uid).maybeSingle();
           if (!existingVet) {
-            await supabase.from('veterinarians').insert({ user_id: uid, full_name: app.full_name || 'Veterinarian' });
+            // Include clinic_id from application so vet appears in clinic's vet list
+            await supabase.from('veterinarians').insert({ 
+              user_id: uid, 
+              full_name: app.full_name || 'Veterinarian',
+              clinic_id: app.clinic_id || null,
+              license_number: app.license_number || null,
+              specialization: app.specialization || null,
+              is_available: true
+            });
+          } else if (!existingVet.clinic_id && app.clinic_id) {
+            // Update existing vet record with clinic_id if missing
+            await supabase.from('veterinarians').update({ 
+              clinic_id: app.clinic_id,
+              license_number: app.license_number || existingVet.license_number,
+              specialization: app.specialization || null
+            }).eq('id', existingVet.id);
           }
         }
-      } catch {}
+      } catch (vetErr) {
+        console.error('Error creating/updating veterinarian record:', vetErr);
+      }
       setRows(rs => rs.map(r => r.id === app.id ? { ...r, status: "approved", reviewed_by: reviewerId, reviewed_at: new Date().toISOString(), review_notes: notes || null } : r));
       try { await supabase.from('notifications').insert({ title: 'Vet application approved', message: `${app.full_name} approved`, notification_type: 'admin', user_id: reviewerId }); } catch {}
       await Swal.fire({ icon: "success", title: "Application approved" });

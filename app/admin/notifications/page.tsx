@@ -31,13 +31,10 @@ export default function AdminNotificationsPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('Loading notifications...');
     loadNotifications();
     const subscription = supabase.channel('public:notifications')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, (payload) => {
-        console.log('Received real-time notification:', payload);
         if (payload.new && typeof payload.new === 'object' && 'title' in payload.new && ['Vet application approved', 'Vet application rejected', 'Veterinarian Approval Request'].includes(payload.new.title)) {
-          console.log('Loading notifications due to real-time update...');
           loadNotifications();
         }
       })
@@ -50,39 +47,12 @@ export default function AdminNotificationsPage() {
   const loadNotifications = async () => {
     setLoading(true);
     try {
-      console.log('Fetching notifications...');
       const data = await getNotifications();
-      console.log('Notifications fetched:', data);
-
-      // Detailed logging to see what's in the database
-      console.log('Database notifications:');
-      data.forEach((notif) => {
-        console.log(`  - ${notif.title} (${notif.notification_type})`);
-      });
 
       // Filter approval notifications
-      const approvalNotifications = data.filter((notif: Notification) => {
-        console.log(`Checking notification title: ${notif.title}`);
-        return notif.title === 'Veterinarian Approval Request';
-      });
-
-      // Detailed logging to see why notifications might not be filtering correctly
-      console.log('Filtered approval notifications:');
-      approvalNotifications.forEach((notif) => {
-        console.log(`  - ${notif.title} (${notif.notification_type})`);
-      });
-      console.log('Rejected notifications:');
-      data.forEach((notif) => {
-        if (!approvalNotifications.includes(notif)) {
-          console.log(`  - ${notif.title} (${notif.notification_type})`);
-        }
-      });
-
-      // Detailed logging to see exactly which notifications match the filter
-      console.log('Notifications that match the filter:');
-      approvalNotifications.forEach((notif) => {
-        console.log(`  - ${notif.title} (${notif.notification_type}) - matches filter: ${['Vet application approved', 'Vet application rejected', 'Veterinarian Approval Request'].includes(notif.title)}`);
-      });
+      const approvalNotifications = data.filter((notif: Notification) => 
+        notif.title === 'Veterinarian Approval Request'
+      );
 
       // Load vet profiles for each notification
       const profiles: Record<string, VetProfile> = {};
@@ -92,7 +62,6 @@ export default function AdminNotificationsPage() {
           profiles[notif.user_id] = profile;
         }
       }
-      console.log('Vet profiles loaded:', profiles);
       setNotifications(approvalNotifications);
       setVetProfiles(profiles);
     } catch (err) {

@@ -94,7 +94,7 @@ export default function ConsultationPage() {
           return;
         }
         if ((a as any).veterinarian_id !== vet.id) {
-          await Swal.fire({ icon: 'error', title: 'Access denied', text: 'This appointment does not belong to your account.' });
+          await Swal.fire({ icon: 'error', title: 'Not found', text: 'Appointment was not found.' });
           router.push('/veterinarian/appointments');
           return;
         }
