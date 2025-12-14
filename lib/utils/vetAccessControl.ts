@@ -61,7 +61,10 @@ export async function getVetAccessControl(): Promise<VetAccessControl> {
       canAccessPatients: isApproved,
       canAccessReviews: isApproved,
       canAccessSettings: isApproved,
-      canEditClinicLocation: true, // Always allow editing clinic location
+      // Allow pending vets to set up clinic location while awaiting approval.
+      // This is safe because owner_visible_vets view filters by verification_status='approved',
+      // so pending vets won't appear in searches until approved.
+      canEditClinicLocation: true,
       restrictionMessage: isPending
         ? 'Your account is pending approval. You can only edit your clinic location.'
         : '',

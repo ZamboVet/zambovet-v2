@@ -24,6 +24,40 @@ import { localISODate } from "../../../lib/utils/time";
  type Vet = { id: number; full_name: string };
  type Clinic = { id: number; name: string };
 
+/**
+ * Verify current user owns the appointment before modifying it.
+ * Returns the verified owner ID or null if verification fails.
+ */
+async function verifyAppointmentOwnership(appointmentId: number): Promise<number | null> {
+  try {
+    // Get current authenticated user
+    const { data: auth } = await supabase.auth.getUser();
+    const userId = auth.user?.id;
+    if (!userId) return null;
+
+    // Get owner profile for current user
+    const { data: ownerRow } = await supabase
+      .from("pet_owner_profiles")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!ownerRow?.id) return null;
+
+    // Verify the appointment belongs to this owner
+    const { data: appt } = await supabase
+      .from("appointments")
+      .select("id,pet_owner_id")
+      .eq("id", appointmentId)
+      .eq("pet_owner_id", ownerRow.id)
+      .maybeSingle();
+    
+    if (!appt) return null;
+    return ownerRow.id;
+  } catch {
+    return null;
+  }
+}
+
 export default function OwnerAppointmentsPage() {
   const [ownerId, setOwnerId] = useState<number | null>(null);
   const [items, setItems] = useState<Appointment[]>([]);
@@ -389,10 +423,16 @@ export default function OwnerAppointmentsPage() {
                         <button onClick={async ()=> {
                           const res = await Swal.fire({ icon:'question', title:'Cancel?', showCancelButton:true, confirmButtonText:'Yes', confirmButtonColor:'#dc2626' });
                           if (!res.isConfirmed) return;
-                          const { error } = await supabase.from('appointments').update({ status:'cancelled' }).eq('id', a.id).eq('pet_owner_id', ownerId as number);
+                          // Verify ownership server-side before cancelling
+                          const verifiedOwnerId = await verifyAppointmentOwnership(a.id);
+                          if (!verifiedOwnerId) {
+                            await Swal.fire({ icon:'error', title:'Unauthorized', text:'You do not have permission to cancel this appointment.' });
+                            return;
+                          }
+                          const { error } = await supabase.from('appointments').update({ status:'cancelled' }).eq('id', a.id).eq('pet_owner_id', verifiedOwnerId);
                           if (error) { await Swal.fire({ icon:'error', title:'Failed', text:error.message }); return; }
                           setItems(prev => prev.map(it => it.id===a.id ? { ...it, status:'cancelled' } : it));
-                          try { await supabase.from('notifications').insert({ title:'Appointment cancelled', message:`Appointment #${a.id} on ${a.appointment_date} • ${a.appointment_time}`, related_appointment_id: a.id, notification_type:'system' }); } catch {}
+                          try { await supabase.from('notifications').insert({ user_id: (await supabase.auth.getUser()).data.user?.id, title:'Appointment cancelled', message:`Appointment #${a.id} on ${a.appointment_date} • ${a.appointment_time}`, related_appointment_id: a.id, notification_type:'system' }); } catch {}
                           await Swal.fire({ icon:'success', title:'Canceled', confirmButtonColor:'#2563eb' });
                         }} className="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 ring-1 ring-red-200 text-[10px] sm:text-[11px] md:text-sm font-medium transition active:scale-95 whitespace-nowrap">Cancel</button>
                       )}
@@ -442,10 +482,16 @@ export default function OwnerAppointmentsPage() {
                             }
                             if (cErr) { await Swal.fire({ icon:'error', title:'Failed', text:cErr.message }); return; }
                             if ((conflicts?.length || 0) > 0) { await Swal.fire({ icon:'warning', title:'Conflict', text:'This time is not available.' }); return; }
-                            const { error } = await supabase.from('appointments').update({ appointment_date: form.date, appointment_time: form.time }).eq('id', a.id).eq('pet_owner_id', ownerId as number);
+                            // Verify ownership server-side before rescheduling
+                            const verifiedOwnerId = await verifyAppointmentOwnership(a.id);
+                            if (!verifiedOwnerId) {
+                              await Swal.fire({ icon:'error', title:'Unauthorized', text:'You do not have permission to reschedule this appointment.' });
+                              return;
+                            }
+                            const { error } = await supabase.from('appointments').update({ appointment_date: form.date, appointment_time: form.time }).eq('id', a.id).eq('pet_owner_id', verifiedOwnerId);
                             if (error) { await Swal.fire({ icon:'error', title:'Failed', text:error.message }); return; }
                             setItems(prev => prev.map(it => it.id===a.id ? { ...it, appointment_date: form.date, appointment_time: form.time } : it));
-                            try { await supabase.from('notifications').insert({ title:'Appointment rescheduled', message:`Appointment #${a.id} → ${form.date} • ${form.time}`, related_appointment_id: a.id, notification_type:'system' }); } catch {}
+                            try { await supabase.from('notifications').insert({ user_id: (await supabase.auth.getUser()).data.user?.id, title:'Appointment rescheduled', message:`Appointment #${a.id} → ${form.date} • ${form.time}`, related_appointment_id: a.id, notification_type:'system' }); } catch {}
                             await Swal.fire({ icon:'success', title:'Rescheduled', confirmButtonColor:'#2563eb' });
                           }} 
                           className={`flex-1 sm:flex-none px-2 sm:px-3 py-1.5 rounded-lg text-[10px] sm:text-[11px] md:text-sm font-medium transition active:scale-95 whitespace-nowrap ${

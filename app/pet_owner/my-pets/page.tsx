@@ -116,7 +116,7 @@ export default function MyPetsPage() {
     setEditOpen(true);
   };
   const onDelete = async (p: Pet) => {
-    const res = await Swal.fire({ title: `Remove ${p.name}?`, text: "This will deactivate the pet profile.", icon: "warning", showCancelButton: true, confirmButtonColor: "#ef4444" });
+    const res = await Swal.fire({ title: `Deactivate ${p.name}?`, text: "This pet will be hidden from your list but can be restored later.", icon: "warning", showCancelButton: true, confirmButtonText: "Deactivate", confirmButtonColor: "#ef4444" });
     if (res.isConfirmed) {
       try {
         const { data, error } = await supabase
@@ -127,14 +127,19 @@ export default function MyPetsPage() {
           .select("id")
           .maybeSingle();
         if (error || !data) {
-          await Swal.fire({ icon: "error", title: "Failed to remove", text: error?.message || "No permission or pet not found." });
+          await Swal.fire({ icon: "error", title: "Failed to deactivate", text: error?.message || "No permission or pet not found." });
           return;
         }
         setPets((prev) => prev.filter((x) => x.id !== p.id));
-        try { await supabase.from('notifications').insert({ title: 'Pet removed', message: `${p.name} has been deactivated`, notification_type:'system' }); } catch {}
-        Swal.fire({ title: "Removed", icon: "success", timer: 1200, showConfirmButton: false });
+        try { 
+          const { data: auth } = await supabase.auth.getUser();
+          if (auth.user?.id) {
+            await supabase.from('notifications').insert({ user_id: auth.user.id, title: 'Pet deactivated', message: `${p.name} has been deactivated`, notification_type:'system' }); 
+          }
+        } catch {}
+        Swal.fire({ title: "Deactivated", icon: "success", timer: 1200, showConfirmButton: false });
       } catch (e: any) {
-        await Swal.fire({ icon: "error", title: "Failed to remove", text: e?.message || "Please try again." });
+        await Swal.fire({ icon: "error", title: "Failed to deactivate", text: e?.message || "Please try again." });
       }
     }
   };
@@ -273,7 +278,7 @@ export default function MyPetsPage() {
                       <button onClick={() => onEdit(p)} className="p-1.5 sm:p-2 rounded-lg text-blue-600 hover:bg-blue-50 active:scale-95 transition" title="Edit">
                         <PencilSquareIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                       </button>
-                      <button onClick={() => onDelete(p)} className="p-1.5 sm:p-2 rounded-lg text-red-600 hover:bg-red-50 active:scale-95 transition" title="Delete">
+                      <button onClick={() => onDelete(p)} className="p-1.5 sm:p-2 rounded-lg text-red-600 hover:bg-red-50 active:scale-95 transition" title="Deactivate">
                         <TrashIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                       </button>
                       <button onClick={() => Swal.fire({ title: "Book visit", text: `Booking flow for ${p.name} coming soon.`, icon: "info", confirmButtonColor: "#2563eb" })} className="p-1.5 sm:p-2 rounded-lg text-emerald-700 hover:bg-emerald-50 active:scale-95 transition" title="Book Visit">
@@ -333,11 +338,16 @@ export default function MyPetsPage() {
           open={editOpen}
           pet={editing as any}
           onClose={() => setEditOpen(false)}
-          onUpdated={(updated: Pet) => {
+          onUpdated={async (updated: Pet) => {
             setPets((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
             setEditing(updated);
             setEditOpen(false);
-            try { supabase.from('notifications').insert({ title:'Pet updated', message:`${updated.name} profile was updated`, notification_type:'system' }); } catch {}
+            try { 
+              const { data: auth } = await supabase.auth.getUser();
+              if (auth.user?.id) {
+                await supabase.from('notifications').insert({ user_id: auth.user.id, title:'Pet updated', message:`${updated.name} profile was updated`, notification_type:'system' }); 
+              }
+            } catch {}
           }}
         />
       )}

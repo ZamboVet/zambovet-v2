@@ -25,7 +25,7 @@ const SPECIALIZATION_OPTIONS = [
 const CLASSIFICATION_LEVEL_OPTIONS = ['Junior', 'Associate', 'Senior', 'Consultant', 'Resident', 'Fellow'];
 const LICENSE_TYPE_OPTIONS = ['PRC', 'Provisional', 'Special Temporary Permit (STP)'];
 
-type Profile = { id: string; email: string; full_name: string | null; phone: string | null; user_role: string; verification_status: string };
+type Profile = { id: string; email: string; full_name: string | null; phone: string | null; user_role: string; verification_status: string; avatar_url?: string | null };
 type Vet = { id: number; user_id: string; full_name: string; is_available: boolean; license_number: string | null };
 type VetApp = { id:number; email:string; business_permit_url:string|null; professional_license_url:string|null; government_id_url:string|null; status:string; full_name?: string | null; created_at?: string };
 
@@ -51,6 +51,8 @@ export default function VetSettingsPage() {
   const [licenseType, setLicenseType] = useState("");
   const [nameTouched, setNameTouched] = useState(false);
   const [phoneTouched, setPhoneTouched] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const sanitizeName = (s: string) => {
     const nf = (s || "").normalize('NFKC');
@@ -105,7 +107,7 @@ export default function VetSettingsPage() {
           window.location.href = `/login?redirect=${encodeURIComponent(current)}`;
           return;
         }
-        const { data: p, error: pErr } = await supabase.from("profiles").select("id,email,full_name,phone,user_role,verification_status").eq("id", user.id).single();
+        const { data: p, error: pErr } = await supabase.from("profiles").select("id,email,full_name,phone,user_role,verification_status,avatar_url").eq("id", user.id).single();
         if (pErr) throw pErr;
         if (p.user_role !== "veterinarian") {
           await Swal.fire({ icon: "error", title: "Access denied", text: "Veterinarian account required." });
@@ -113,6 +115,7 @@ export default function VetSettingsPage() {
           return;
         }
         setProfile(p as Profile);
+        setAvatarUrl((p as any).avatar_url || null);
         
         // Fetch the veterinarian profile (take most recent to guard against duplicates)
         const { data: vetData, error: vetError } = await supabase
@@ -283,6 +286,55 @@ export default function VetSettingsPage() {
     }
   };
 
+  const uploadAvatar = async (file: File) => {
+    if (!profile) return;
+    const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      await Swal.fire({ icon: 'warning', title: 'Invalid file', text: 'Only image files (PNG, JPG, WEBP) are allowed.' });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      await Swal.fire({ icon: 'warning', title: 'File too large', text: 'Maximum size is 2MB.' });
+      return;
+    }
+    setUploadingAvatar(true);
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const path = `${profile.id}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true, cacheControl: '3600' });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path);
+      const url = pub.publicUrl;
+      const { error: updErr } = await supabase.from('profiles').update({ avatar_url: url }).eq('id', profile.id);
+      if (updErr) throw updErr;
+      setAvatarUrl(url);
+      setProfile({ ...profile, avatar_url: url });
+      await Swal.fire({ icon: 'success', title: 'Profile picture updated' });
+    } catch (e: any) {
+      await Swal.fire({ icon: 'error', title: 'Upload failed', text: e?.message });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const removeAvatar = async () => {
+    if (!profile) return;
+    const res = await Swal.fire({ icon: 'warning', title: 'Remove profile picture?', showCancelButton: true });
+    if (!res.isConfirmed) return;
+    setUploadingAvatar(true);
+    try {
+      const { error } = await supabase.from('profiles').update({ avatar_url: null }).eq('id', profile.id);
+      if (error) throw error;
+      setAvatarUrl(null);
+      setProfile({ ...profile, avatar_url: null });
+      await Swal.fire({ icon: 'success', title: 'Removed' });
+    } catch (e: any) {
+      await Swal.fire({ icon: 'error', title: 'Failed', text: e?.message });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   const uploadDocs = async () => {
     if (!profile) return;
     if (!licenseFile && !permitFile && !govIdFile) {
@@ -364,6 +416,34 @@ export default function VetSettingsPage() {
         <div className="rounded-3xl bg-white/80 backdrop-blur-sm p-5 shadow ring-1 ring-black/5">
           <div className="text-lg font-semibold mb-4" style={{ color: PRIMARY }}>Profile</div>
           <div className="grid grid-cols-1 gap-4">
+            {/* Avatar Upload */}
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Profile" className="w-20 h-20 rounded-xl object-cover ring-2 ring-blue-100" />
+                ) : (
+                  <div className="w-20 h-20 rounded-xl bg-blue-50 text-blue-700 grid place-items-center text-2xl font-semibold ring-2 ring-blue-100">
+                    {name ? name.split(" ")[0][0]?.toUpperCase() : "?"}
+                  </div>
+                )}
+                {uploadingAvatar && (
+                  <div className="absolute inset-0 bg-white/80 rounded-xl grid place-items-center">
+                    <ArrowPathIcon className="w-6 h-6 animate-spin text-blue-600" />
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-sm cursor-pointer hover:bg-blue-100 transition">
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && uploadAvatar(e.target.files[0])} disabled={uploadingAvatar} />
+                  {avatarUrl ? 'Change Photo' : 'Upload Photo'}
+                </label>
+                {avatarUrl && (
+                  <button onClick={removeAvatar} disabled={uploadingAvatar} className="px-3 py-1.5 rounded-lg bg-red-50 text-red-700 text-sm hover:bg-red-100 transition">
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Full Name</label>
               <input value={name} onChange={(e) => setName(sanitizeName(e.target.value))} onBlur={()=>setNameTouched(true)} aria-invalid={nameInvalid}

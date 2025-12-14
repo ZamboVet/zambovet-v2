@@ -89,22 +89,30 @@ export async function POST(request: NextRequest) {
     
     const results = await Promise.allSettled(
       tokens.map(async (token: any) => {
+        console.log(`🔄 Processing token: ${token.platform} - ${token.token.substring(0, 20)}...`);
         try {
           if (token.platform === 'android' || token.platform === 'ios') {
             // Send via FCM (for both Android and iOS)
-            return await sendFCMNotification(token.token, notificationPayload);
+            const result = await sendFCMNotification(token.token, notificationPayload);
+            console.log(`✅ FCM result:`, result);
+            return result;
           } else if (token.platform === 'web') {
             // Send via Web Push
             return await sendWebPushNotification(token.token, notificationPayload);
           }
         } catch (err) {
-          console.error(`Failed to send to ${token.platform}:`, err);
+          console.error(`❌ Failed to send to ${token.platform}:`, err);
           return { success: false, error: err };
         }
       })
     );
 
     const successCount = results.filter(r => r.status === 'fulfilled' && r.value?.success).length;
+    const failedResults = results.filter(r => r.status === 'rejected' || !r.value?.success);
+    
+    if (failedResults.length > 0) {
+      console.log('❌ Failed results:', failedResults);
+    }
 
     return NextResponse.json(
       {

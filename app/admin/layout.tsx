@@ -1,14 +1,48 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { HomeIcon, UsersIcon, BuildingOfficeIcon, UserCircleIcon, ClockIcon, Cog6ToothIcon, BellIcon } from "@heroicons/react/24/outline";
 import AdminSidebar from "./components/Sidebar";
 import AdminTopbar from "./components/Topbar";
+import { supabase } from "../../lib/supabaseClient";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
+  const [authorized, setAuthorized] = useState(false);
+
+  // Auth + role gating
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        const user = data.user;
+        if (!user) {
+          const current = `${pathname || '/admin'}`;
+          router.replace(`/login?redirect=${encodeURIComponent(current)}`);
+          return;
+        }
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('user_role')
+          .eq('id', user.id)
+          .maybeSingle();
+        if ((prof as any)?.user_role !== 'admin') {
+          router.replace('/');
+          return;
+        }
+        setAuthorized(true);
+      } catch {
+        router.replace('/login');
+      } finally {
+        setAuthReady(true);
+      }
+    })();
+  }, [pathname, router]);
+
   const items = [
     { href: "/admin", label: "Dashboard", icon: HomeIcon, desc: "Dashboard overview" },
     { href: "/admin/users", label: "User Management", icon: UsersIcon, desc: "Manage accounts" },
@@ -23,6 +57,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     window.addEventListener("toggle-admin-sidebar", handler as EventListener);
     return () => window.removeEventListener("toggle-admin-sidebar", handler as EventListener);
   }, []);
+
+  // Show loading state while checking auth
+  if (!authReady) {
+    return (
+      <div className="min-h-screen grid place-items-center bg-gradient-to-br from-white via-blue-50 to-white">
+        <div className="text-sm text-gray-500">Loading…</div>
+      </div>
+    );
+  }
+
+  // Don't render content if not authorized
+  if (!authorized) return null;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-white bg-[radial-gradient(circle_at_80%_0%,rgba(37,99,235,0.08),transparent_60%)] text-gray-900">
       {/* Mobile overlay when sidebar is open */}

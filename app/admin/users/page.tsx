@@ -23,7 +23,7 @@ import {
 type Role = "pet_owner" | "veterinarian" | "admin";
 type Status = "active" | "suspended";
 
-type U = { id: string; name: string; email: string; role: Role; status: Status; created_at?: string | null };
+type U = { id: string; name: string; email: string; role: Role; status: Status; created_at?: string | null; avatar_url?: string | null };
 
 const PRIMARY = "#2563eb";
 
@@ -42,11 +42,19 @@ export default function AdminUsersPage() {
     const fetchUsers = async () => {
       setLoading(true);
       try {
+        // Fetch profiles
         const { data, error } = await supabase
           .from("profiles")
-          .select("id,email,full_name,user_role,is_active,created_at")
+          .select("id,email,full_name,user_role,is_active,created_at,avatar_url")
           .order("full_name", { ascending: true });
         if (error) throw error;
+        
+        // Fetch pet owner avatars (they store in pet_owner_profiles.profile_picture_url)
+        const { data: ownerAvatars } = await supabase
+          .from("pet_owner_profiles")
+          .select("user_id,profile_picture_url");
+        const ownerAvatarMap = new Map((ownerAvatars || []).map((o: any) => [o.user_id, o.profile_picture_url]));
+        
         const mapped: U[] = (data || []).map((p: any) => ({
           id: p.id,
           name: p.full_name || p.email || "Unnamed",
@@ -54,6 +62,7 @@ export default function AdminUsersPage() {
           role: (p.user_role as Role),
           status: p.is_active ? "active" : "suspended",
           created_at: p.created_at || null,
+          avatar_url: p.avatar_url || ownerAvatarMap.get(p.id) || null,
         }));
         setUsers(mapped);
       } catch (err: any) {
@@ -67,10 +76,13 @@ export default function AdminUsersPage() {
 
   const viewUser = async (u: U) => {
     const joined = u.created_at ? new Date(u.created_at).toLocaleDateString() : "-";
+    const avatarHtml = u.avatar_url 
+      ? `<img src='${u.avatar_url}' alt='${u.name}' class='w-11 h-11 rounded-xl object-cover' onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"/><div class='w-11 h-11 rounded-xl bg-blue-50 text-blue-700 place-items-center text-sm font-semibold' style='display:none'>${(u.name||u.email||"?").slice(0,1).toUpperCase()}</div>`
+      : `<div class='w-11 h-11 rounded-xl bg-blue-50 text-blue-700 grid place-items-center text-sm font-semibold'>${(u.name||u.email||"?").slice(0,1).toUpperCase()}</div>`;
     const html = `
       <div class='text-left font-[Poppins]'>
         <div class='flex items-start gap-3'>
-          <div class='w-11 h-11 rounded-xl bg-blue-50 text-blue-700 grid place-items-center text-sm font-semibold'>${(u.name||u.email||"?").slice(0,1).toUpperCase()}</div>
+          ${avatarHtml}
           <div class='min-w-0'>
             <div class='font-semibold' style='color:${PRIMARY}'>${u.name || u.email}</div>
             <div class='text-xs text-gray-500'>${u.email}</div>
@@ -167,12 +179,58 @@ export default function AdminUsersPage() {
   const roleIcon = (r: Role) => r === "admin" ? <ShieldCheckIcon className="w-3.5 h-3.5"/> : r === "veterinarian" ? <AcademicCapIcon className="w-3.5 h-3.5"/> : <UserIcon className="w-3.5 h-3.5"/>;
 
   const setUserRole = async (id: string, r: Role) => {
-    const res = await Swal.fire({ icon: "question", title: "Change role?", text: "This will update the user's role.", showCancelButton: true, confirmButtonText: "Update" });
-    if (!res.isConfirmed) return;
+    const currentUser = users.find(u => u.id === id);
+    const currentRole = currentUser?.role;
+    
+    // Prevent self-demotion from admin
+    if (id === adminId && currentRole === 'admin' && r !== 'admin') {
+      await Swal.fire({ icon: 'warning', title: 'Cannot demote yourself', text: 'You cannot remove your own admin privileges.' });
+      return;
+    }
+    
+    // Extra confirmation for admin role escalation
+    if (r === 'admin') {
+      const confirmAdmin = await Swal.fire({
+        icon: 'warning',
+        title: 'Grant Admin Access?',
+        html: `<div class='text-left'>
+          <p class='text-red-600 font-semibold mb-2'>⚠️ This is a privileged action</p>
+          <p class='text-sm text-gray-600 mb-3'>You are about to grant <strong>full admin access</strong> to this user. They will be able to:</p>
+          <ul class='text-sm text-gray-600 list-disc pl-5 space-y-1'>
+            <li>Manage all users and roles</li>
+            <li>Approve/reject veterinarians</li>
+            <li>Access all system settings</li>
+            <li>Grant admin access to others</li>
+          </ul>
+          <p class='text-sm text-gray-600 mt-3'>Type <strong>CONFIRM</strong> to proceed:</p>
+          <input id='admin_confirm' type='text' class='w-full mt-2 px-3 py-2 border rounded-lg text-sm' placeholder='Type CONFIRM' />
+        </div>`,
+        showCancelButton: true,
+        confirmButtonText: 'Grant Admin',
+        confirmButtonColor: '#dc2626',
+        preConfirm: () => {
+          const val = (document.getElementById('admin_confirm') as HTMLInputElement)?.value;
+          if (val !== 'CONFIRM') {
+            Swal.showValidationMessage('Please type CONFIRM to proceed');
+            return false;
+          }
+          return true;
+        }
+      });
+      if (!confirmAdmin.isConfirmed) return;
+    } else {
+      const res = await Swal.fire({ icon: "question", title: "Change role?", text: `This will update the user's role to ${r}.`, showCancelButton: true, confirmButtonText: "Update" });
+      if (!res.isConfirmed) return;
+    }
+    
     const { error } = await supabase.from("profiles").update({ user_role: r }).eq("id", id);
     if (error) { await Swal.fire({ icon: "error", title: "Update failed", text: error.message }); return; }
     setUsers(us => us.map(u => u.id===id?{...u, role: r}:u));
-    try { await supabase.from('notifications').insert({ title: 'User role updated', message: `User #${id} role set to ${r}`, notification_type: 'admin', user_id: adminId }); } catch {}
+    // Log admin role changes with more detail
+    const logMessage = r === 'admin' 
+      ? `ADMIN ESCALATION: User #${id} granted admin role by ${adminId}`
+      : `User #${id} role set to ${r}`;
+    try { await supabase.from('notifications').insert({ title: 'User role updated', message: logMessage, notification_type: 'admin', user_id: adminId }); } catch {}
     await Swal.fire({ icon: "success", title: "Role updated" });
   };
   const toggleUserStatus = async (id: string) => {
@@ -315,11 +373,14 @@ export default function AdminUsersPage() {
 
       {view === "Cards" ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {(loading ? Array.from({length:8}).map((_,i)=>({id:`sk${i}`,name:"",email:"",role:"pet_owner" as Role,status:"active" as Status})) : filtered).map((u, i) => (
+          {(loading ? Array.from({length:8}).map((_,i)=>({id:`sk${i}`,name:"",email:"",role:"pet_owner" as Role,status:"active" as Status,avatar_url:null} as U)) : filtered).map((u, i) => (
             <div key={u.id} className="group rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5 hover:shadow-md hover:-translate-y-0.5 transition" style={{ transitionDelay: `${i*30}ms` }}>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-700 grid place-items-center text-sm font-semibold ring-1 ring-black/5 transition-transform group-hover:scale-105">
+                  {u.avatar_url ? (
+                    <img src={u.avatar_url} alt={u.name} className="w-11 h-11 rounded-xl object-cover ring-1 ring-black/5 transition-transform group-hover:scale-105" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }} />
+                  ) : null}
+                  <div className={`w-11 h-11 rounded-xl bg-blue-50 text-blue-700 grid place-items-center text-sm font-semibold ring-1 ring-black/5 transition-transform group-hover:scale-105 ${u.avatar_url ? 'hidden' : ''}`}>
                     {u.name ? u.name.split(" ")[0][0] : "?"}
                   </div>
                   <div>
@@ -402,7 +463,10 @@ export default function AdminUsersPage() {
                 <div key={u.id} className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-700 grid place-items-center text-xs font-semibold">{u.name.split(" ")[0][0]}</div>
+                      {u.avatar_url ? (
+                        <img src={u.avatar_url} alt={u.name} className="w-9 h-9 rounded-lg object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }} />
+                      ) : null}
+                      <div className={`w-9 h-9 rounded-lg bg-blue-50 text-blue-700 grid place-items-center text-xs font-semibold ${u.avatar_url ? 'hidden' : ''}`}>{u.name.split(" ")[0][0]}</div>
                       <div className="min-w-0">
                         <div className="font-medium truncate" style={{ color: PRIMARY }}>{u.name}</div>
                         <div className="text-xs text-gray-500 truncate" title={u.email}>{u.email}</div>
@@ -477,7 +541,10 @@ export default function AdminUsersPage() {
                      onKeyDown={(e)=>{ if (e.key==='Enter' || e.key===' ') { e.preventDefault(); viewUser(u); } }}
                      onClick={()=>viewUser(u)}>
                   <div className="flex items-start justify-between gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-700 grid place-items-center text-xs font-semibold">{u.name.split(" ")[0][0]}</div>
+                    {u.avatar_url ? (
+                      <img src={u.avatar_url} alt={u.name} className="w-9 h-9 rounded-lg object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }} />
+                    ) : null}
+                    <div className={`w-9 h-9 rounded-lg bg-blue-50 text-blue-700 grid place-items-center text-xs font-semibold ${u.avatar_url ? 'hidden' : ''}`}>{u.name.split(" ")[0][0]}</div>
                     <div className="min-w-0">
                       <div className="font-medium truncate" style={{ color: PRIMARY }}>{u.name}</div>
                     </div>

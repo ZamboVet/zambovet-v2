@@ -174,12 +174,10 @@ function VetAppointmentsPageInner() {
         const { data: ownerData } = await supabase.from('pet_owner_profiles').select('user_id').eq('id', apptItem.pet_owner_id).maybeSingle();
         const ownerUserId = (ownerData as any)?.user_id;
         if (ownerUserId) {
-          console.log('📢 Sending notification to user:', ownerUserId);
           await supabase.from('notifications').insert({ user_id: ownerUserId, title, message: `Appointment #${id} → ${next}`, related_appointment_id: id, notification_type: 'system' });
           
           // Send push notification
-          console.log('📤 Calling push notification API...');
-          const response = await fetch('/api/send-push-notification', {
+          await fetch('/api/send-push-notification', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -189,13 +187,11 @@ function VetAppointmentsPageInner() {
               data: { appointmentId: id },
               notificationType: `appointment_${next}`
             })
-          });
-          const result = await response.json();
-          console.log('✅ Push notification response:', result);
+          }).catch(() => {}); // Silently handle push notification failures
         }
       }
-    } catch (err) {
-      console.error('❌ Error sending notification:', err);
+    } catch {
+      // Notification error - non-critical, continue
     }
     await Swal.fire({ icon: "success", title: "Status updated" });
   };
