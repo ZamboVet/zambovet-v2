@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
 import { supabase } from "../../../lib/supabaseClient";
 import { MagnifyingGlassIcon, AcademicCapIcon, ChevronLeftIcon, ChevronRightIcon, EnvelopeIcon, IdentificationIcon, CheckCircleIcon, XCircleIcon, EyeIcon, BellIcon } from "@heroicons/react/24/outline";
+import { notifyUser, getAdminUserIds } from "../../../lib/services/notificationService";
 
 const PRIMARY = "#0B63C7";
 
@@ -151,7 +152,42 @@ export default function AdminVetsPage() {
         console.error('Error creating/updating veterinarian record:', vetErr);
       }
       setRows(rs => rs.map(r => r.id === app.id ? { ...r, status: "approved", reviewed_by: reviewerId, reviewed_at: new Date().toISOString(), review_notes: notes || null } : r));
-      try { await supabase.from('notifications').insert({ title: 'Vet application approved', message: `${app.full_name} approved`, notification_type: 'admin', user_id: reviewerId }); } catch {}
+      
+      // Notify the vet applicant
+      try {
+        const { data: prof } = await supabase.from('profiles').select('id').eq('email', app.email).maybeSingle();
+        const vetUserId = (prof as any)?.id as string | undefined;
+        if (vetUserId) {
+          await notifyUser({
+            userId: vetUserId,
+            title: '🎉 Application Approved!',
+            message: `Congratulations! Your veterinarian application has been approved. You can now start accepting appointments.`,
+            notificationType: 'admin',
+            data: { applicationId: app.id },
+          });
+        }
+      } catch (err) {
+        console.error('Failed to notify vet applicant:', err);
+      }
+      
+      // Notify admins
+      try {
+        const adminIds = await getAdminUserIds();
+        for (const adminId of adminIds) {
+          if (adminId !== reviewerId) {
+            await notifyUser({
+              userId: adminId,
+              title: 'Vet Application Approved',
+              message: `${app.full_name} has been approved as a veterinarian`,
+              notificationType: 'admin',
+              data: { applicationId: app.id, vetName: app.full_name },
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to notify admins:', err);
+      }
+      
       await Swal.fire({ icon: "success", title: "Application approved" });
     } catch (err: any) {
       await Swal.fire({ icon: "error", title: "Approval failed", text: err?.message || "Please try again." });
@@ -190,7 +226,42 @@ export default function AdminVetsPage() {
       if (error) throw error;
       await supabase.from("profiles").update({ verification_status: "rejected" }).eq("email", app.email);
       setRows(rs => rs.map(r => r.id === app.id ? { ...r, status: "rejected", reviewed_by: reviewerId, reviewed_at: new Date().toISOString(), rejection_reason: reason } : r));
-      try { await supabase.from('notifications').insert({ title: 'Vet application rejected', message: `${app.full_name} rejected`, notification_type: 'admin', user_id: reviewerId }); } catch {}
+      
+      // Notify the vet applicant
+      try {
+        const { data: prof } = await supabase.from('profiles').select('id').eq('email', app.email).maybeSingle();
+        const vetUserId = (prof as any)?.id as string | undefined;
+        if (vetUserId) {
+          await notifyUser({
+            userId: vetUserId,
+            title: '❌ Application Not Approved',
+            message: `Your veterinarian application was not approved. Reason: ${reason}`,
+            notificationType: 'admin',
+            data: { applicationId: app.id, reason },
+          });
+        }
+      } catch (err) {
+        console.error('Failed to notify vet applicant:', err);
+      }
+      
+      // Notify admins
+      try {
+        const adminIds = await getAdminUserIds();
+        for (const adminId of adminIds) {
+          if (adminId !== reviewerId) {
+            await notifyUser({
+              userId: adminId,
+              title: 'Vet Application Rejected',
+              message: `${app.full_name}'s application was rejected`,
+              notificationType: 'admin',
+              data: { applicationId: app.id, vetName: app.full_name },
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to notify admins:', err);
+      }
+      
       await Swal.fire({ icon: "success", title: "Application rejected" });
     } catch (err: any) {
       await Swal.fire({ icon: "error", title: "Rejection failed", text: err?.message || "Please try again." });

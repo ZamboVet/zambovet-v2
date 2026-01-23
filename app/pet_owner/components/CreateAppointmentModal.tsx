@@ -5,6 +5,7 @@ import { XMarkIcon, CalendarDaysIcon, HeartIcon } from "@heroicons/react/24/outl
 import Swal from "sweetalert2";
 import { supabase } from "../../../lib/supabaseClient";
 import { buildLocal, isAtLeastMinutesFromNow, localISODate } from "../../../lib/utils/time";
+import { notifyUser } from "../../../lib/services/notificationService";
 
 export type CreateAppointmentModalProps = {
   open: boolean;
@@ -322,9 +323,8 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
       const { data, error } = await supabase.from("appointments").insert(payload).select("*").single();
       if (error) throw error;
 
-      // Create notification for the veterinarian
+      // Notify the veterinarian with push notification
       try {
-        // Get patient name for better notification message
         const { data: patientData } = await supabase
           .from("patients")
           .select("name")
@@ -334,17 +334,17 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
         const patientName = patientData?.name || "a patient";
 
         if (vetForBooking.user_id) {
-          await supabase.from('notifications').insert({
-            user_id: vetForBooking.user_id,
-            title: 'New Appointment Request',
+          await notifyUser({
+            userId: vetForBooking.user_id,
+            title: '📅 New Appointment Request',
             message: `New appointment request for ${patientName} on ${data.appointment_date} at ${data.appointment_time}`,
-            notification_type: 'appointment',
-            related_appointment_id: data.id,
+            notificationType: 'appointment',
+            relatedAppointmentId: data.id,
+            data: { appointmentId: data.id, patientName },
           });
         }
       } catch (notifErr: any) {
-        // Log error but don't block appointment creation
-        console.error("Failed to create notification:", notifErr);
+        console.error("Failed to notify veterinarian:", notifErr);
       }
       await Swal.fire({ icon: "success", title: "Appointment requested" });
       onCreated(data);

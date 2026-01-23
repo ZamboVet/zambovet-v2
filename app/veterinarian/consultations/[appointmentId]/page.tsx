@@ -6,6 +6,7 @@ import { supabase } from "../../../../lib/supabaseClient";
 import { getCurrentVet } from "../../../../lib/utils/currentVet";
 import Swal from "sweetalert2";
 import { Poppins } from "next/font/google";
+import { notifyUser, getUserIdFromOwnerId } from "../../../../lib/services/notificationService";
 
 const poppins = Poppins({ subsets: ["latin"], weight: ["400","500","600","700"] });
 const PRIMARY = "#2563eb";
@@ -232,17 +233,21 @@ export default function ConsultationPage() {
         try {
           const ownerId = (appointment as any)?.pet_owner_id as number | null;
           if (ownerId) {
-            const { data: owner } = await supabase.from('pet_owner_profiles').select('user_id, full_name').eq('id', ownerId).maybeSingle();
-            const user_id = (owner as any)?.user_id || null;
-            await supabase.from('notifications').insert({
-              user_id,
-              title: 'Consultation completed',
-              message: `Consultation for appointment #${apptId} has been completed.`,
-              notification_type: 'system',
-              related_appointment_id: apptId,
-            });
+            const ownerUserId = await getUserIdFromOwnerId(ownerId);
+            if (ownerUserId) {
+              await notifyUser({
+                userId: ownerUserId,
+                title: '✅ Consultation Completed',
+                message: `Your consultation for appointment #${apptId} has been completed. You can now view the results.`,
+                notificationType: 'appointment',
+                relatedAppointmentId: apptId,
+                data: { appointmentId: apptId },
+              });
+            }
           }
-        } catch {}
+        } catch (err) {
+          console.error('Failed to notify owner:', err);
+        }
       }
 
       await Swal.fire({ icon: "success", title: complete ? "Consultation completed" : "Saved" });

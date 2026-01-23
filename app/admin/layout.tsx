@@ -6,6 +6,7 @@ import { HomeIcon, UsersIcon, BuildingOfficeIcon, UserCircleIcon, ClockIcon, Cog
 import AdminSidebar from "./components/Sidebar";
 import AdminTopbar from "./components/Topbar";
 import { supabase } from "../../lib/supabaseClient";
+import { usePushNotifications } from "../../lib/hooks/usePushNotifications";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -13,6 +14,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [open, setOpen] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [authorized, setAuthorized] = useState(false);
+
+  // Initialize push notifications for admin
+  usePushNotifications();
 
   // Auth + role gating
   useEffect(() => {
