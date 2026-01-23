@@ -5,6 +5,7 @@ import Link from "next/link";
 import Swal from "sweetalert2";
 import { supabase } from "../../../lib/supabaseClient";
 import { getCurrentVet } from "../../../lib/utils/currentVet";
+import { notifyUser, getUserIdFromOwnerId } from "../../../lib/services/notificationService";
 import { Poppins } from "next/font/google";
 import { FunnelIcon, MagnifyingGlassIcon, ArrowPathIcon, CheckCircleIcon, XCircleIcon, CalendarDaysIcon } from "@heroicons/react/24/outline";
 
@@ -168,30 +169,27 @@ function VetAppointmentsPageInner() {
     
     setItems(prev => prev.map(it => (it.id === id ? { ...it, status: next } : it)));
     try {
-      const title = next === 'confirmed' ? 'Appointment confirmed' : next === 'completed' ? 'Appointment completed' : next === 'no_show' ? 'Appointment marked no-show' : next === 'canceled' ? 'Appointment canceled' : 'Appointment updated';
-      // Get the appointment details to find pet owner's user_id
       if (apptItem?.pet_owner_id) {
-        const { data: ownerData } = await supabase.from('pet_owner_profiles').select('user_id').eq('id', apptItem.pet_owner_id).maybeSingle();
-        const ownerUserId = (ownerData as any)?.user_id;
+        const ownerUserId = await getUserIdFromOwnerId(apptItem.pet_owner_id);
         if (ownerUserId) {
-          await supabase.from('notifications').insert({ user_id: ownerUserId, title, message: `Appointment #${id} → ${next}`, related_appointment_id: id, notification_type: 'system' });
-          
-          // Send push notification
-          await fetch('/api/send-push-notification', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: ownerUserId,
-              title: next === 'confirmed' ? '✨ Appointment Confirmed!' : `Appointment ${next}`,
-              message: `Your appointment #${id} status: ${next}`,
-              data: { appointmentId: id },
-              notificationType: `appointment_${next}`
-            })
-          }).catch(() => {}); // Silently handle push notification failures
+          const titleMap: Record<string, string> = {
+            confirmed: '✨ Appointment Confirmed!',
+            completed: '✅ Appointment Completed',
+            no_show: '⚠️ Appointment No-Show',
+            canceled: '❌ Appointment Canceled',
+          };
+          await notifyUser({
+            userId: ownerUserId,
+            title: titleMap[next] || 'Appointment Updated',
+            message: `Your appointment #${id} status: ${next}`,
+            notificationType: 'appointment',
+            relatedAppointmentId: id,
+            data: { appointmentId: id, status: next },
+          });
         }
       }
-    } catch {
-      // Notification error - non-critical, continue
+    } catch (err) {
+      console.error('Failed to notify owner:', err);
     }
     await Swal.fire({ icon: "success", title: "Status updated" });
   };
@@ -230,28 +228,22 @@ function VetAppointmentsPageInner() {
     if (error) { await Swal.fire({ icon: 'error', title: 'Reschedule failed', text: error.message }); return; }
     setItems(prev => prev.map(it => it.id === a.id ? { ...it, appointment_date: form.date, appointment_time: form.time } : it));
     try {
-      // Get the appointment's pet owner's user_id for notification
       if (a.pet_owner_id) {
-        const { data: ownerData } = await supabase.from('pet_owner_profiles').select('user_id').eq('id', a.pet_owner_id).maybeSingle();
-        const ownerUserId = (ownerData as any)?.user_id;
+        const ownerUserId = await getUserIdFromOwnerId(a.pet_owner_id);
         if (ownerUserId) {
-          await supabase.from('notifications').insert({ user_id: ownerUserId, title: 'Appointment rescheduled', message: `Appointment #${a.id} → ${form.date} • ${form.time}`, related_appointment_id: a.id, notification_type: 'system' });
-          
-          // Send push notification
-          await fetch('/api/send-push-notification', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: ownerUserId,
-              title: '📅 Appointment Rescheduled',
-              message: `Your appointment has been rescheduled to ${form.date} at ${form.time}`,
-              data: { appointmentId: a.id },
-              notificationType: 'appointment_rescheduled'
-            })
-          }).catch(err => console.error('Push notification failed:', err));
+          await notifyUser({
+            userId: ownerUserId,
+            title: '📅 Appointment Rescheduled',
+            message: `Your appointment has been rescheduled to ${form.date} at ${form.time}`,
+            notificationType: 'appointment',
+            relatedAppointmentId: a.id,
+            data: { appointmentId: a.id, newDate: form.date, newTime: form.time },
+          });
         }
       }
-    } catch {}
+    } catch (err) {
+      console.error('Failed to notify owner:', err);
+    }
     await Swal.fire({ icon: 'success', title: 'Rescheduled' });
   };
 

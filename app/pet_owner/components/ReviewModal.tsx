@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Swal from "sweetalert2";
 import { supabase } from "../../../lib/supabaseClient";
+import { notifyUser, getUserIdFromVetId } from "../../../lib/services/notificationService";
 
 interface ReviewModalProps {
   appointmentId: number;
@@ -246,6 +247,25 @@ export default function ReviewModal({
       });
 
       if (error) throw error;
+
+      // Notify the veterinarian about the new review
+      try {
+        if (veterinarianId) {
+          const vetUserId = await getUserIdFromVetId(veterinarianId);
+          if (vetUserId) {
+            await notifyUser({
+              userId: vetUserId,
+              title: '⭐ New Review Received',
+              message: `You received a ${formData.rating}-star review for appointment #${appointmentId}`,
+              notificationType: 'review',
+              relatedAppointmentId: appointmentId,
+              data: { appointmentId, rating: formData.rating },
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to notify veterinarian:', err);
+      }
 
       await Swal.fire({
         icon: "success",

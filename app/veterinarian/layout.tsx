@@ -8,6 +8,7 @@ import HeaderBar from "./components/HeaderBar";
 import PendingVetBanner from "./components/PendingVetBanner";
 import { getVetAccessControl } from "../../lib/utils/vetAccessControl";
 import { supabase } from "../../lib/supabaseClient";
+import { usePushNotifications } from "../../lib/hooks/usePushNotifications";
 
 const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 const PRIMARY = "#0B63C7";
@@ -20,6 +21,9 @@ function VetLayoutInner({ children }: { children: React.ReactNode }) {
   const [authorized, setAuthorized] = useState(false);
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  // Initialize push notifications for veterinarian
+  usePushNotifications();
 
   useEffect(() => {
     (async () => {
