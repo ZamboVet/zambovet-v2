@@ -262,6 +262,13 @@ export function Sidebar() {
             if (!res.isConfirmed) return;
             try {
               await supabase.auth.signOut({ scope: "global" as any });
+              // Clear server-side cookies
+              try {
+                await fetch('/api/auth/clear-cookie', {
+                  method: 'POST',
+                  credentials: 'include',
+                });
+              } catch {}
               try {
                 const removeAuthKeys = () => {
                   try {

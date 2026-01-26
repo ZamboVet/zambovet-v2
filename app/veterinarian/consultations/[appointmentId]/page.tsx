@@ -467,7 +467,7 @@ export default function ConsultationPage() {
                   </div>
                   <div>
                     <label className="text-[11px] text-gray-500">Notes</label>
-                    <input value={vitalsForm.notes} onChange={e=>setVitalsForm(v=>({...v, notes:e.target.value}))} placeholder="Optional notes" className="w-full px-3 py-2 rounded-xl ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 outline-none"/>
+                    <input value={vitalsForm.notes} onChange={e=>setVitalsForm(v=>({...v, notes:e.target.value}))} placeholder="Optional notes" maxLength={500} className="w-full px-3 py-2 rounded-xl ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 outline-none"/>
                   </div>
                 </div>
               )}
@@ -484,9 +484,9 @@ export default function ConsultationPage() {
                 <div className="space-y-2">
                   {diagnosesForm.map((d, i)=> (
                     <div key={i} className="grid sm:grid-cols-2 gap-2 min-w-0">
-                      <input value={d.text} onChange={e=>setDiagnosesForm(arr=> arr.map((x,idx)=> idx===i?{...x, text:e.target.value}:x))} placeholder="Diagnosis" className="w-full min-w-0 px-3 py-2 rounded-xl ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 outline-none"/>
+                      <input value={d.text} onChange={e=>setDiagnosesForm(arr=> arr.map((x,idx)=> idx===i?{...x, text:e.target.value}:x))} placeholder="Diagnosis" maxLength={200} className="w-full min-w-0 px-3 py-2 rounded-xl ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 outline-none"/>
                       <div className="flex gap-2 min-w-0">
-                        <input value={d.notes} onChange={e=>setDiagnosesForm(arr=> arr.map((x,idx)=> idx===i?{...x, notes:e.target.value}:x))} placeholder="Notes" className="flex-1 min-w-0 px-3 py-2 rounded-xl ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 outline-none"/>
+                        <input value={d.notes} onChange={e=>setDiagnosesForm(arr=> arr.map((x,idx)=> idx===i?{...x, notes:e.target.value}:x))} placeholder="Notes" maxLength={500} className="flex-1 min-w-0 px-3 py-2 rounded-xl ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 outline-none"/>
                         <button onClick={()=> setDiagnosesForm(arr=> arr.filter((_,idx)=> idx!==i))} className="px-3 py-2 rounded-xl ring-1 ring-gray-200">Remove</button>
                       </div>
                     </div>
@@ -507,8 +507,8 @@ export default function ConsultationPage() {
                   {prescriptionsForm.map((r, i)=> (
                     <div key={i} className="space-y-2 min-w-0 pb-3 border-b border-gray-100 last:border-b-0 last:pb-0">
                       <div className="grid sm:grid-cols-2 gap-2 min-w-0">
-                        <input value={r.name} onChange={e=>setPrescriptionsForm(arr=> arr.map((x,idx)=> idx===i?{...x, name:e.target.value}:x))} placeholder="Medication name" className="w-full min-w-0 px-3 py-2 rounded-xl ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 outline-none"/>
-                        <input value={r.duration} onChange={e=>setPrescriptionsForm(arr=> arr.map((x,idx)=> idx===i?{...x, duration:e.target.value}:x))} placeholder="Duration" className="flex-1 min-w-0 px-3 py-2 rounded-xl ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 outline-none"/>
+                        <input value={r.name} onChange={e=>setPrescriptionsForm(arr=> arr.map((x,idx)=> idx===i?{...x, name:e.target.value}:x))} placeholder="Medication name" maxLength={200} className="w-full min-w-0 px-3 py-2 rounded-xl ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 outline-none"/>
+                        <input value={r.duration} onChange={e=>setPrescriptionsForm(arr=> arr.map((x,idx)=> idx===i?{...x, duration:e.target.value}:x))} placeholder="Duration" maxLength={100} className="flex-1 min-w-0 px-3 py-2 rounded-xl ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 outline-none"/>
                       </div>
                       <div className="flex gap-2 items-end min-w-0">
                         <div className="flex-1 min-w-0">
@@ -527,7 +527,7 @@ export default function ConsultationPage() {
                         </div>
                         <button onClick={()=> setPrescriptionsForm(arr=> arr.filter((_,idx)=> idx!==i))} className="px-3 py-2 rounded-xl ring-1 ring-gray-200">Remove</button>
                       </div>
-                      <input value={r.instr} onChange={e=>setPrescriptionsForm(arr=> arr.map((x,idx)=> idx===i?{...x, instr:e.target.value}:x))} placeholder="Instructions" className="w-full min-w-0 px-3 py-2 rounded-xl ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 outline-none"/>
+                      <input value={r.instr} onChange={e=>setPrescriptionsForm(arr=> arr.map((x,idx)=> idx===i?{...x, instr:e.target.value}:x))} placeholder="Instructions" maxLength={500} className="w-full min-w-0 px-3 py-2 rounded-xl ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-400 outline-none"/>
                     </div>
                   ))}
                 </div>
@@ -557,7 +557,7 @@ export default function ConsultationPage() {
                   </div>
                   <div className="mt-3">
                     <div className="text-xs text-gray-500 mb-1">Notes</div>
-                    <div className="rounded-xl bg-gray-50 p-3 text-gray-700">{vitalsForm.notes || '—'}</div>
+                    <div className="rounded-xl bg-gray-50 p-3 text-gray-700 break-words">{vitalsForm.notes || '—'}</div>
                   </div>
                 </div>
               </div>
@@ -571,9 +571,9 @@ export default function ConsultationPage() {
                     diagnosesForm.filter(d=>d.text.trim()).map((d,i)=> (
                       <li key={i} className="rounded-2xl ring-1 ring-gray-100 p-4 bg-white">
                         <div className="font-semibold" style={{ color: PRIMARY }}>Diagnosis {i+1}</div>
-                        <div className="mt-1 text-gray-900">{d.text}</div>
+                        <div className="mt-1 text-gray-900 break-words">{d.text}</div>
                         <div className="mt-1 text-gray-500 text-xs">Notes</div>
-                        <div className="text-gray-700">{d.notes || '—'}</div>
+                        <div className="text-gray-700 break-words">{d.notes || '—'}</div>
                       </li>
                     ))
                   )}
@@ -589,7 +589,7 @@ export default function ConsultationPage() {
                     prescriptionsForm.filter(r=>r.name.trim()).map((r,i)=> (
                       <li key={i} className="rounded-2xl ring-1 ring-gray-100 p-4 bg-white space-y-1">
                         <div className="font-semibold" style={{ color: PRIMARY }}>Prescription {i+1}</div>
-                        <div className="text-gray-900">{r.name}</div>
+                        <div className="text-gray-900 break-words">{r.name}</div>
                         <div className="grid sm:grid-cols-2 gap-2">
                         <div className="rounded-xl bg-gray-50 p-3 flex items-center justify-between">
                             <span className="text-gray-500">Dosage</span>
@@ -602,7 +602,7 @@ export default function ConsultationPage() {
                         </div>
                         <div>
                           <div className="text-gray-500 text-xs">Instructions</div>
-                          <div className="text-gray-700">{r.instr || '—'}</div>
+                          <div className="text-gray-700 break-words">{r.instr || '—'}</div>
                         </div>
                       </li>
                     ))

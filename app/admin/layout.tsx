@@ -18,15 +18,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   // Initialize push notifications for admin
   usePushNotifications();
 
-  // Auth + role gating
+  // Auth is handled by middleware, verify role client-side for UX
   useEffect(() => {
+    let mounted = true;
     (async () => {
       try {
         const { data } = await supabase.auth.getUser();
         const user = data.user;
         if (!user) {
-          const current = `${pathname || '/admin'}`;
-          router.replace(`/login?redirect=${encodeURIComponent(current)}`);
+          // Middleware will handle redirect
+          if (mounted) {
+            setAuthorized(false);
+            setAuthReady(true);
+          }
           return;
         }
         const { data: prof } = await supabase
@@ -35,16 +39,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           .eq('id', user.id)
           .maybeSingle();
         if ((prof as any)?.user_role !== 'admin') {
-          router.replace('/');
+          // Wrong role - redirect to home (not login to avoid loop)
+          if (mounted) router.replace('/');
           return;
         }
-        setAuthorized(true);
-      } catch {
-        router.replace('/login');
-      } finally {
-        setAuthReady(true);
+        if (mounted) {
+          setAuthorized(true);
+          setAuthReady(true);
+        }
+      } catch (err) {
+        console.error('Admin layout auth check failed:', err);
+        if (mounted) {
+          setAuthorized(false);
+          setAuthReady(true);
+        }
       }
     })();
+    return () => { mounted = false; };
   }, [pathname, router]);
 
   const items = [

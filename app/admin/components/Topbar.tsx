@@ -57,6 +57,13 @@ export default function AdminTopbar() {
       await Swal.fire({ icon: "error", title: "Failed", text: error.message });
       return;
     }
+    // Clear server-side cookies
+    try {
+      await fetch('/api/auth/clear-cookie', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {}
     setOpen(false);
     try {
       localStorage.removeItem('po_avatar_url');

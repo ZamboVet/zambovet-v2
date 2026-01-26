@@ -74,17 +74,8 @@ export default function PetOwnerLayout({ children }: { children: ReactNode }) {
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
-  useEffect(() => {
-    if (!authReady) return;
-    if (!authed) {
-      try {
-        const current = `${window.location.pathname}${window.location.search}`;
-        router.replace(`/login?redirect=${encodeURIComponent(current)}`);
-      } catch {
-        router.replace("/login");
-      }
-    }
-  }, [authReady, authed, router]);
+  // Middleware handles redirects, layout just controls rendering
+  // No need to redirect here as middleware will catch unauthenticated requests
   if (!authReady) {
     return (
       <div className="min-h-dvh grid place-items-center bg-neutral-50">

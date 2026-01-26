@@ -4,8 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { XMarkIcon, CalendarDaysIcon, HeartIcon } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import { supabase } from "../../../lib/supabaseClient";
-import { buildLocal, isAtLeastMinutesFromNow, localISODate } from "../../../lib/utils/time";
+import { buildLocal, isAtLeastMinutesFromNow, localISODate, getZamboangaDate, buildZamboangaDate, isAtLeastMinutesFromNowZamboanga, getZamboangaTime } from "../../../lib/utils/time";
 import { notifyUser } from "../../../lib/services/notificationService";
+import { checkAppointmentConflict, isConstraintViolation, refreshAvailableSlots } from "../../../lib/utils/appointmentBooking";
 
 export type CreateAppointmentModalProps = {
   open: boolean;
@@ -68,7 +69,8 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
 
   useEffect(() => {
     // set on client after mount to avoid SSR/CSR mismatch
-    try { setToday(localISODate()); } catch {}
+    // Use Zamboanga timezone (PST/GMT+8) to ensure correct date regardless of user's location
+    try { setToday(getZamboangaDate()); } catch {}
   }, []);
 
   useEffect(() => {
@@ -213,17 +215,18 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
         .eq('veterinarian_id', veterinarianId as number)
         .eq('appointment_date', date);
       const busy = new Set<string>((appts||[]).filter((a:any)=> a.status !== 'cancelled').map((a:any)=> a.appointment_time));
-      const todayStr = localISODate();
+      const todayStr = getZamboangaDate();
       const sameDay = date === todayStr;
-      const now = new Date();
-      const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
+      const currentZamboangaTime = getZamboangaTime();
+      const [currentHour, currentMin] = currentZamboangaTime.split(':').map(Number);
+      const currentTimeMinutes = currentHour * 60 + currentMin;
       for (let mnt = startM; mnt <= endM; mnt += stepMin) {
         const v = make(mnt);
-        const dt = buildLocal(date, v);
+        const dt = buildZamboangaDate(date, v);
         let disabled = false; let hint: string | undefined;
-        if (sameDay && !isAtLeastMinutesFromNow(dt, 30)) { disabled = true; hint = 'Too soon'; }
+        if (sameDay && !isAtLeastMinutesFromNowZamboanga(dt, 30)) { disabled = true; hint = 'Too soon'; }
         if (!disabled && busy.has(v)) { disabled = true; hint = 'Booked'; }
-        // Check if time has already passed today
+        // Check if time has already passed today (in Zamboanga timezone)
         if (sameDay && mnt < currentTimeMinutes) { disabled = true; hint = 'Past'; }
         list.push({ value: v, display: formatTo12Hour(v), disabled, hint });
       }
@@ -241,12 +244,12 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
       await Swal.fire({ icon: "warning", title: "Missing info", text: "Select pet, vet, date and time.", confirmButtonColor: "#2563eb" });
       return;
     }
-    // block past datetime
+    // block past datetime (using Zamboanga timezone)
     try {
-      const dt = buildLocal(date, time);
+      const dt = buildZamboangaDate(date, time);
       if (isNaN(dt.getTime())) throw new Error("Invalid date/time");
-      if (!isAtLeastMinutesFromNow(dt, 30)) {
-        await Swal.fire({ icon: "warning", title: "Too soon", text: "Please pick a time at least 30 minutes from now." });
+      if (!isAtLeastMinutesFromNowZamboanga(dt, 30)) {
+        await Swal.fire({ icon: "warning", title: "Too soon", text: "Please pick a time at least 30 minutes from now (Zamboanga time)." });
         return;
       }
     } catch {
@@ -274,38 +277,34 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
       }
       // Skip duplicate profile gating; vetted list already enforces approved + active
 
-      // Check for duplicate appointment by same pet owner on same date
-      const { data: ownerAppts, error: oErr } = await supabase
-        .from("appointments")
-        .select("id,appointment_date,status")
-        .eq("pet_owner_id", ownerId)
-        .eq("patient_id", patientId)
-        .eq("appointment_date", date)
-        .neq("status", "cancelled");
-      if (oErr) throw oErr;
-      if ((ownerAppts?.length || 0) > 0) {
-        const existingAppt = ownerAppts![0];
-        const petName = pets.find(p => p.id === (patientId as number))?.name || 'this pet';
+      // Final conflict check before insertion (prevents race conditions)
+      const conflictCheck = await checkAppointmentConflict(
+        veterinarianId as number,
+        date,
+        time,
+        ownerId,
+        patientId as number
+      );
+
+      if (conflictCheck.hasConflict) {
         await Swal.fire({ 
           icon: "warning", 
-          title: "Appointment already exists", 
-          text: `You already have an appointment for ${petName} on ${date}. Please choose a different date or cancel the existing appointment.`,
+          title: conflictCheck.conflictType === 'owner_duplicate' ? "Appointment already exists" : "Time not available", 
+          text: conflictCheck.message || "Please select a different time.",
           confirmButtonColor: "#2563eb"
         });
-        setSaving(false);
-        return;
-      }
-      // conflict check for vet
-      const { data: conflicts, error: cErr } = await supabase
-        .from("appointments")
-        .select("id")
-        .eq("veterinarian_id", veterinarianId as number)
-        .eq("appointment_date", date)
-        .eq("appointment_time", time)
-        .limit(1);
-      if (cErr) throw cErr;
-      if ((conflicts?.length || 0) > 0) {
-        await Swal.fire({ icon: "warning", title: "Time not available", text: "The veterinarian already has an appointment at this time." });
+        
+        // If vet is busy, refresh slots to show updated availability
+        if (conflictCheck.conflictType === 'vet_busy') {
+          const busySlots = await refreshAvailableSlots(veterinarianId as number, date);
+          setSlots(prev => prev.map(s => ({
+            ...s,
+            disabled: s.disabled || busySlots.has(s.value),
+            hint: busySlots.has(s.value) ? 'Booked' : s.hint
+          })));
+          setTime("");
+        }
+        
         setSaving(false);
         return;
       }
@@ -321,7 +320,31 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
         booking_type: "web",
       };
       const { data, error } = await supabase.from("appointments").insert(payload).select("*").single();
-      if (error) throw error;
+      if (error) {
+        // Check for unique constraint violation (race condition - someone else booked this slot)
+        if (isConstraintViolation(error)) {
+          // Refresh available slots to show updated availability
+          const busySlots = await refreshAvailableSlots(veterinarianId as number, date);
+          
+          // Update slots to reflect the newly booked time
+          setSlots(prev => prev.map(s => ({
+            ...s,
+            disabled: s.disabled || busySlots.has(s.value),
+            hint: busySlots.has(s.value) ? 'Booked' : s.hint
+          })));
+          setTime(""); // Clear the selected time
+          
+          await Swal.fire({ 
+            icon: "warning", 
+            title: "Time slot just taken", 
+            text: "Another user just booked this time slot. Please select a different time.",
+            confirmButtonColor: "#2563eb"
+          });
+          setSaving(false);
+          return;
+        }
+        throw error;
+      }
 
       // Notify the veterinarian with push notification
       try {
@@ -420,7 +443,14 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
             </div>
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-1">Date</label>
-              <input type="date" suppressHydrationWarning min={today || undefined} value={date} onChange={(e)=> setDate(e.target.value)} className="w-full rounded-xl border border-neutral-200 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
+              <input 
+                type="date" 
+                suppressHydrationWarning 
+                min={today || undefined}
+                value={date} 
+                onChange={(e)=> setDate(e.target.value)} 
+                className="w-full rounded-xl border border-neutral-200 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" 
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-1">Time</label>
