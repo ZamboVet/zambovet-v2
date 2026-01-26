@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
 import { supabase } from "../../../lib/supabaseClient";
-import { MagnifyingGlassIcon, AcademicCapIcon, ChevronLeftIcon, ChevronRightIcon, EnvelopeIcon, IdentificationIcon, CheckCircleIcon, XCircleIcon, EyeIcon, BellIcon } from "@heroicons/react/24/outline";
+import { MagnifyingGlassIcon, AcademicCapIcon, ChevronLeftIcon, ChevronRightIcon, EnvelopeIcon, IdentificationIcon, CheckCircleIcon, XCircleIcon, EyeIcon, BellIcon, DocumentArrowDownIcon } from "@heroicons/react/24/outline";
 import { notifyUser, getAdminUserIds } from "../../../lib/services/notificationService";
+import { generateVetApplicationPDF } from "../../../lib/utils/pdfGenerator";
 
 const PRIMARY = "#0B63C7";
 
@@ -355,6 +356,15 @@ export default function AdminVetsPage() {
     await Swal.fire({ title: "Application Details", html, confirmButtonText: "Close", width: 720, showCloseButton: true, customClass: { popup: "rounded-2xl", confirmButton: "rounded-lg" } });
   };
 
+  const downloadPDF = (app: VetApplication) => {
+    try {
+      generateVetApplicationPDF(app);
+      Swal.fire({ icon: "success", title: "PDF Generated", text: "Application PDF has been downloaded.", timer: 2000, showConfirmButton: false });
+    } catch (err: any) {
+      Swal.fire({ icon: "error", title: "PDF Generation Failed", text: err?.message || "Please try again." });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
@@ -389,6 +399,7 @@ export default function AdminVetsPage() {
               </div>
               <div className="mt-3 flex items-center justify-end gap-2">
                 <button onClick={()=>viewDocs(a)} className="px-2 py-1 rounded-lg bg-gray-50 text-xs hover:bg-blue-50" style={{ color: PRIMARY }}>Docs</button>
+                <button onClick={()=>downloadPDF(a)} className="px-2 py-1 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 text-xs" title="Download PDF">PDF</button>
                 {a.status !== "approved" && (
                   <button onClick={()=>approve(a)} className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs">Approve</button>
                 )}
@@ -425,6 +436,9 @@ export default function AdminVetsPage() {
               <div className="flex justify-end gap-2">
                 <button onClick={()=>viewDocs(a)} className="px-2 py-1 rounded-lg bg-gray-50 hover:bg-blue-50 text-xs inline-flex items-center gap-1" style={{ color: PRIMARY }}>
                   <EyeIcon className="w-4 h-4" /> Docs
+                </button>
+                <button onClick={()=>downloadPDF(a)} className="px-2 py-1 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 text-xs inline-flex items-center gap-1" title="Download PDF">
+                  <DocumentArrowDownIcon className="w-4 h-4" /> PDF
                 </button>
                 {a.status !== "approved" && (
                   <button onClick={()=>approve(a)} className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs inline-flex items-center gap-1">

@@ -40,8 +40,6 @@ export default function MomentsFeedPage() {
   const [creating, setCreating] = useState(false);
   const [offset, setOffset] = useState(0);
   const PAGE_SIZE = 20;
-  const [followingOnly, setFollowingOnly] = useState(false);
-  const [followingIds, setFollowingIds] = useState<number[]>([]);
   const [authorized, setAuthorized] = useState(false);
 
   const [content, setContent] = useState("");
@@ -73,11 +71,6 @@ export default function MomentsFeedPage() {
         setAuthorized(true);
         const { data: pets } = await supabase.from("patients").select("id,name").eq("owner_id", (ownerRow as any).id).eq("is_active", true).order("name");
         setPatients((pets || []) as any);
-        try {
-          const { data: fol } = await supabase.from('owner_follows').select('following_owner_id').eq('follower_owner_id', (ownerRow as any).id);
-          const ids = (fol || []).map((r: any) => Number(r.following_owner_id)).filter((n: any) => !isNaN(n));
-          setFollowingIds(ids);
-        } catch {}
         await fetchFeed((ownerRow as any).id, 0, true);
       } catch (e: any) {
         await Swal.fire({ icon: "error", title: "Failed to load", text: e?.message, confirmButtonColor: swalConfirmColor });
@@ -130,22 +123,17 @@ export default function MomentsFeedPage() {
 
   const fetchFeed = async (ownerId: number, startOffset = 0, reset = false) => {
     try {
-      // Fetch posts: public + own + following (visibility filtering applied client-side)
-      let q = supabase
+      // Fetch posts: public + own posts only
+      const { data: raw } = await supabase
         .from("pet_posts")
         .select("id,pet_owner_id,patient_id,content,media_count,visibility,created_at")
-        .order("created_at", { ascending: false });
-      if (followingOnly) {
-        const list = [ownerId, ...followingIds];
-        q = q.in('pet_owner_id', list.length > 0 ? list : [ownerId]);
-      }
-      const { data: raw } = await q.range(startOffset, startOffset + PAGE_SIZE - 1);
-      // Filter by visibility: show public posts, own posts, and posts from following (if owners_only)
+        .order("created_at", { ascending: false })
+        .range(startOffset, startOffset + PAGE_SIZE - 1);
+      // Filter by visibility: show public posts and own posts only
       const filtered = (raw || []).filter((r: any) => {
         if (r.pet_owner_id === ownerId) return true; // always show own posts
         if (r.visibility === 'public') return true; // show public posts
-        if (r.visibility === 'owners_only' && followingIds.includes(r.pet_owner_id)) return true; // show owners_only from following
-        return false; // hide private posts and owners_only from non-following
+        return false; // hide private and owners_only posts from others
       });
       const rows = filtered as any[];
       if (rows.length === 0) { if (reset) setPosts([]); return; }
@@ -266,15 +254,6 @@ export default function MomentsFeedPage() {
     }
   };
 
-  const followOwner = async (targetOwnerId: number) => {
-    if (!owner) return;
-    try {
-      await supabase.from('owner_follows').insert({ follower_owner_id: owner.id, following_owner_id: targetOwnerId });
-      setFollowingIds(prev => Array.from(new Set([...prev, targetOwnerId])));
-    } catch (e: any) {
-      await Swal.fire({ icon: 'error', title: 'Failed to follow', text: e?.message || 'Please try again.', confirmButtonColor: swalConfirmColor });
-    }
-  };
 
   const onFilesPicked = (filesList: FileList | null) => {
     if (!filesList) return;
@@ -376,15 +355,6 @@ export default function MomentsFeedPage() {
     }
   };
 
-  const unfollowOwner = async (targetOwnerId: number) => {
-    if (!owner) return;
-    try {
-      await supabase.from('owner_follows').delete().eq('follower_owner_id', owner.id).eq('following_owner_id', targetOwnerId);
-      setFollowingIds(prev => prev.filter(id => id !== targetOwnerId));
-    } catch (e: any) {
-      await Swal.fire({ icon: 'error', title: 'Failed to unfollow', text: e?.message || 'Please try again.', confirmButtonColor: swalConfirmColor });
-    }
-  };
 
   const deletePost = async (postId: number) => {
     if (!owner) return;
@@ -489,21 +459,6 @@ export default function MomentsFeedPage() {
           </div>
         </div>
 
-        {/* Feed header */}
-        <div className="flex flex-col xs:flex-row items-start xs:items-center justify-between gap-2 xs:gap-3 bg-white/60 rounded-lg sm:rounded-xl p-3 sm:p-4 ring-1 ring-neutral-200/50 flex-shrink-0">
-          <div className="text-xs sm:text-sm font-medium text-neutral-700">
-            {followingOnly ? '📌 Following only' : '🌍 All posts'}
-          </div>
-          <label className="inline-flex items-center gap-2 text-xs sm:text-sm cursor-pointer group">
-            <input
-              type="checkbox"
-              checked={followingOnly}
-              onChange={(e)=> { setFollowingOnly(e.target.checked); owner && fetchFeed(owner.id, 0, true); }}
-              className="w-4 h-4 rounded border-neutral-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-            />
-            <span className="text-neutral-600 group-hover:text-neutral-900 transition-colors">Following only</span>
-          </label>
-        </div>
 
         {/* Feed */}
         <div className="space-y-3 sm:space-y-4 flex-1 overflow-y-auto min-h-0">
@@ -530,8 +485,7 @@ export default function MomentsFeedPage() {
             </div>
           )}
           {!loading && posts.map((p)=> (
-            <PostCard key={p.id} post={p} myId={owner?.id || 0} onToggleLike={()=> toggleLike(p.id)} onAddComment={(t)=> addComment(p.id, t)} onEdit={()=> editPost(p.id, p.content)} onDelete={()=> deletePost(p.id)}
-              isFollowing={followingIds.includes(p.pet_owner_id)} onFollow={()=> followOwner(p.pet_owner_id)} onUnfollow={()=> unfollowOwner(p.pet_owner_id)} openMedia={(url, type)=> setLightbox({ url, type })} />
+            <PostCard key={p.id} post={p} myId={owner?.id || 0} onToggleLike={()=> toggleLike(p.id)} onAddComment={(t)=> addComment(p.id, t)} onEdit={()=> editPost(p.id, p.content)} onDelete={()=> deletePost(p.id)} openMedia={(url, type)=> setLightbox({ url, type })} />
           ))}
           {!loading && posts.length > 0 && posts.length >= PAGE_SIZE && (
             <div className="flex justify-center pt-2">
@@ -560,7 +514,7 @@ export default function MomentsFeedPage() {
   );
 }
 
-function PostCard({ post, myId, onToggleLike, onAddComment, onEdit, onDelete, isFollowing, onFollow, onUnfollow, openMedia }: { post: Post; myId: number; onToggleLike: ()=>void; onAddComment: (t:string)=>void; onEdit: ()=>void; onDelete: ()=>void; isFollowing: boolean; onFollow: ()=>void; onUnfollow: ()=>void; openMedia: (url: string, type: 'image' | 'video')=>void }){
+function PostCard({ post, myId, onToggleLike, onAddComment, onEdit, onDelete, openMedia }: { post: Post; myId: number; onToggleLike: ()=>void; onAddComment: (t:string)=>void; onEdit: ()=>void; onDelete: ()=>void; openMedia: (url: string, type: 'image' | 'video')=>void }){
   const [comment, setComment] = useState("");
   const [showCommentBox, setShowCommentBox] = useState(false);
   const media = post.media || [];
@@ -588,22 +542,22 @@ function PostCard({ post, myId, onToggleLike, onAddComment, onEdit, onDelete, is
       {/* Card Header */}
       <div className="p-3 sm:p-4 border-b border-neutral-100/50">
         <div className="flex items-start gap-2 sm:gap-3">
-          <div className="h-9 w-9 sm:h-11 sm:w-11 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 text-white flex-shrink-0 grid place-items-center text-xs sm:text-sm font-bold shadow-sm ring-2 ring-white">
+          <Link href={`/pet_owner/profile/${post.pet_owner_id}`} className="h-9 w-9 sm:h-11 sm:w-11 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 text-white flex-shrink-0 grid place-items-center text-xs sm:text-sm font-bold shadow-sm ring-2 ring-white hover:ring-4 hover:ring-blue-200 transition-all cursor-pointer">
             {post.owner_avatar ? (
               <img src={post.owner_avatar} alt="avatar" className="w-full h-full object-cover" />
             ) : (
               <span>{(post.owner_name||'O').slice(0,1).toUpperCase()}</span>
             )}
-          </div>
+          </Link>
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 mb-1">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="font-semibold text-neutral-900 text-sm sm:text-base truncate">{post.owner_name}</span>
+                <Link href={`/pet_owner/profile/${post.pet_owner_id}`} className="font-semibold text-neutral-900 text-sm sm:text-base truncate hover:text-blue-600 transition-colors cursor-pointer">{post.owner_name}</Link>
                 {post.patient_name && (
                   <span className="px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700 ring-1 ring-blue-200/50 whitespace-nowrap">🐾 {post.patient_name}</span>
                 )}
               </div>
-              {myId === post.pet_owner_id ? (
+              {myId === post.pet_owner_id && (
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={onEdit}
@@ -620,19 +574,6 @@ function PostCard({ post, myId, onToggleLike, onAddComment, onEdit, onDelete, is
                     <TrashIcon className="w-4 h-4" />
                   </button>
                 </div>
-              ) : (
-                myId !== post.pet_owner_id && (
-                  <button
-                    onClick={isFollowing ? onUnfollow : onFollow}
-                    className={`text-xs font-medium px-2.5 sm:px-3 py-1 rounded-lg transition-all active:scale-95 whitespace-nowrap ${
-                      isFollowing
-                        ? 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-                        : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
-                    }`}
-                  >
-                    {isFollowing ? 'Following' : 'Follow'}
-                  </button>
-                )
               )}
             </div>
             <div className="flex items-center gap-2 text-xs sm:text-sm text-neutral-500 flex-wrap">

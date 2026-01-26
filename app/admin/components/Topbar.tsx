@@ -18,10 +18,12 @@ export default function AdminTopbar() {
   useEffect(() => { (async()=>{ try { const { data } = await supabase.auth.getUser(); setAdminId(data.user?.id ?? null); } catch {} })(); }, []);
 
   useEffect(() => {
+    if (!adminId) return;
     const fetchNotifs = async () => {
       const { data } = await supabase
         .from("notifications")
         .select("id,title,message,is_read,created_at")
+        .eq("user_id", adminId)
         .order("created_at", { ascending: false })
         .limit(10);
       setItems(((data || []) as any[]).map(n => ({ id: n.id, title: n.title, message: n.message, is_read: !!n.is_read, created_at: n.created_at })));
@@ -30,9 +32,10 @@ export default function AdminTopbar() {
   }, [adminId]);
 
   useEffect(() => {
+    if (!adminId) return;
     const ch = supabase
       .channel("admin-header-notifs")
-      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, (payload: any) => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${adminId}` }, (payload: any) => {
         const row: any = payload.new || payload.record;
         if (!row) return;
         setItems(prev => [{ id: row.id, title: row.title || 'Activity', message: row.message || '', is_read: !!row.is_read, created_at: row.created_at || new Date().toISOString() }, ...prev].slice(0,10));
@@ -46,8 +49,13 @@ export default function AdminTopbar() {
   }, [adminId]);
 
   const markAllRead = async () => {
-    try { await supabase.from('notifications').update({ is_read: true }).eq('is_read', false); } catch {}
-    setItems(prev => prev.map(i=>({ ...i, is_read: true })));
+    if (!adminId) return;
+    try { 
+      await supabase.from('notifications').update({ is_read: true }).eq('user_id', adminId).eq('is_read', false); 
+      setItems(prev => prev.map(i=>({ ...i, is_read: true })));
+    } catch (err) {
+      console.error('Failed to mark all as read:', err);
+    }
   };
   const doLogout = async () => {
     const res = await Swal.fire({ icon: "question", title: "Sign out?", showCancelButton: true, confirmButtonText: "Sign out" });

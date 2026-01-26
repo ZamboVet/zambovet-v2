@@ -12,6 +12,7 @@ const titleMap: Record<string, string> = {
   "/veterinarian": "Dashboard",
   "/veterinarian/appointments": "Appointments",
   "/veterinarian/patients": "Patients",
+  "/veterinarian/reports": "Reports & Analytics",
   "/veterinarian/earnings": "Earnings",
   "/veterinarian/settings": "Settings",
 };
