@@ -214,6 +214,10 @@ export default function AdminNotificationsPage() {
         <div className="grid gap-4">
           {notifications.map((notif) => {
             const profile = vetProfiles[notif.user_id];
+            // Skip approved and rejected applications - only show pending
+            if (profile && (profile.verification_status === 'approved' || profile.verification_status === 'rejected')) {
+              return null;
+            }
             return (
               <div
                 key={notif.id}
@@ -227,9 +231,17 @@ export default function AdminNotificationsPage() {
                       <h3 className="text-lg font-semibold text-gray-900">{notif.title}</h3>
                       <p className="text-sm text-gray-500 mt-1">{formatDate(notif.created_at)}</p>
                     </div>
-                    <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
-                      Pending
-                    </span>
+                    {profile && (
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${
+                        profile.verification_status === 'approved' 
+                          ? 'bg-green-100 text-green-800' 
+                          : profile.verification_status === 'rejected'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {profile.verification_status}
+                      </span>
+                    )}
                   </div>
 
                   {/* Message */}
