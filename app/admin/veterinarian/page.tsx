@@ -138,9 +138,9 @@ export default function AdminVeterinariansPage() {
       <div><b>License #</b>: ${app.license_number}</div>
       <hr/>
       <div style='display:grid;gap:8px'>
-        <a href="${app.professional_license_url || "#"}" target="_blank" rel="noreferrer">Professional License</a>
-        <a href="${app.business_permit_url || "#"}" target="_blank" rel="noreferrer">Business Permit</a>
-        <a href="${app.government_id_url || "#"}" target="_blank" rel="noreferrer">Government ID</a>
+        ${app.professional_license_url ? `<a href="${app.professional_license_url}" target="_blank" rel="noreferrer" style="color:#2563eb;text-decoration:underline">Professional License</a>` : `<span style="color:#9ca3af">Professional License (not uploaded)</span>`}
+        ${app.business_permit_url ? `<a href="${app.business_permit_url}" target="_blank" rel="noreferrer" style="color:#2563eb;text-decoration:underline">Business Permit</a>` : `<span style="color:#9ca3af">Business Permit (not uploaded)</span>`}
+        ${app.government_id_url ? `<a href="${app.government_id_url}" target="_blank" rel="noreferrer" style="color:#2563eb;text-decoration:underline">Government ID</a>` : `<span style="color:#9ca3af">Government ID (not uploaded)</span>`}
       </div>
     </div>`;
     await Swal.fire({ title: "Application Details", html, confirmButtonText: "Close", width: 600 });

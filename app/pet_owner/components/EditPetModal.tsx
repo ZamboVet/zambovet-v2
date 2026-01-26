@@ -283,7 +283,13 @@ export default function EditPetModal({ open, pet, onClose, onUpdated }: EditPetM
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-neutral-800 mb-2">Date of Birth</label>
-                  <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className="w-full rounded-lg border border-neutral-300 px-4 py-3 text-base outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  <input 
+                    type="date" 
+                    value={dob} 
+                    onChange={(e) => setDob(e.target.value)} 
+                    max={todayLocalISO()}
+                    className="w-full rounded-lg border border-neutral-300 px-4 py-3 text-base outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                  />
                 </div>
               </div>
               <div>

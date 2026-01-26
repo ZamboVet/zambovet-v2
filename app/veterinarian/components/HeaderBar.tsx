@@ -34,6 +34,13 @@ export default function HeaderBar({ onMenu, primary }: Props) {
       await Swal.fire({ icon: "error", title: "Failed", text: error.message });
       return;
     }
+    // Clear server-side cookies
+    try {
+      await fetch('/api/auth/clear-cookie', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {}
     try {
       localStorage.removeItem('po_avatar_url');
       localStorage.removeItem('po_sidebar_collapsed');

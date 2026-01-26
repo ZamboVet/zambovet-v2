@@ -37,15 +37,16 @@ function VetLayoutInner({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
-  // Auth + role gating with redirect preservation
+  // Auth is handled by middleware, but verify role client-side for UX
   useEffect(() => {
+    let mounted = true;
     (async () => {
       try {
         const { data } = await supabase.auth.getUser();
         const user = data.user;
-        const current = `${pathname || '/veterinarian'}${searchParams?.toString() ? `?${searchParams.toString()}` : ''}`;
         if (!user) {
-          window.location.href = `/login?redirect=${encodeURIComponent(current)}`;
+          // Middleware will handle redirect, just don't show content
+          if (mounted) setAuthorized(false);
           return;
         }
         const { data: prof } = await supabase
@@ -54,16 +55,18 @@ function VetLayoutInner({ children }: { children: React.ReactNode }) {
           .eq('id', user.id)
           .maybeSingle();
         if ((prof as any)?.user_role !== 'veterinarian') {
-          window.location.href = '/';
+          // Wrong role - redirect to home (not login to avoid loop)
+          if (mounted) window.location.href = '/';
           return;
         }
-        setAuthorized(true);
-      } catch {
-        // hard redirect to login on unexpected failures
-        const current = `${pathname || '/veterinarian'}${searchParams?.toString() ? `?${searchParams.toString()}` : ''}`;
-        window.location.href = `/login?redirect=${encodeURIComponent(current)}`;
+        if (mounted) setAuthorized(true);
+      } catch (err) {
+        // Let middleware handle auth failures
+        console.error('Layout auth check failed:', err);
+        if (mounted) setAuthorized(false);
       }
     })();
+    return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
