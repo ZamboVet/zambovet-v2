@@ -12,7 +12,7 @@ import {
   ClockIcon,
   CheckCircleIcon,
   XCircleIcon,
-  TrendingUpIcon,
+  ArrowTrendingUpIcon,
   DocumentChartBarIcon
 } from "@heroicons/react/24/outline";
 import { Poppins } from "next/font/google";
@@ -243,7 +243,7 @@ export default function VetReportsPage() {
                   <div className="p-3 rounded-xl bg-blue-600 text-white">
                     <CalendarDaysIcon className="w-6 h-6" />
                   </div>
-                  <TrendingUpIcon className="w-5 h-5 text-blue-600" />
+                  <ArrowTrendingUpIcon className="w-5 h-5 text-blue-600" />
                 </div>
                 <div className="text-3xl font-bold text-neutral-900">{stats.totalAppointments}</div>
                 <div className="text-sm text-neutral-600 mt-1">Total Appointments</div>

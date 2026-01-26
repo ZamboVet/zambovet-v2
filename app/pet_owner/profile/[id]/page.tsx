@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
 import { supabase } from "../../../../lib/supabaseClient";
 import { swalConfirmColor } from "../../../../lib/ui/tokens";
-import { ArrowLeftIcon, UserCircleIcon, PhoneIcon, MapPinIcon, CalendarIcon, PawPrintIcon } from "@heroicons/react/24/outline";
+import { ArrowLeftIcon, UserCircleIcon, PhoneIcon, MapPinIcon, CalendarIcon, HeartIcon } from "@heroicons/react/24/outline";
 
 type Profile = {
   id: number;
@@ -72,7 +72,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
           .eq("user_id", uid)
           .maybeSingle();
 
-        const isOwn = currentOwner && (currentOwner as any).id === profileId;
+        const isOwn = !!(currentOwner && (currentOwner as any).id === profileId);
         setIsOwnProfile(isOwn);
 
         // Fetch profile
@@ -287,7 +287,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
         {pets.length > 0 && (
           <div className="bg-white rounded-2xl shadow-sm ring-1 ring-neutral-100 p-6">
             <div className="flex items-center gap-2 mb-4">
-              <PawPrintIcon className="w-5 h-5 text-blue-600" />
+              <HeartIcon className="w-5 h-5 text-blue-600" />
               <h3 className="text-lg font-semibold text-neutral-900">Pets</h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
