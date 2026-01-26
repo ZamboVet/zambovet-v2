@@ -36,7 +36,7 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
   const [vetsLoading, setVetsLoading] = useState(false);
   const [vetsError, setVetsError] = useState<string | null>(null);
 
-  const [patientId, setPatientId] = useState<number | "">("");
+  const [patientIds, setPatientIds] = useState<number[]>([]);
   const [veterinarianId, setVeterinarianId] = useState<number | "">("");
   const [clinicId, setClinicId] = useState<number | "">("");
   const [date, setDate] = useState<string>("");
@@ -240,8 +240,8 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
   if (!open) return null;
 
   const submit = async () => {
-    if (!ownerId || !patientId || !veterinarianId || !date || !time) {
-      await Swal.fire({ icon: "warning", title: "Missing info", text: "Select pet, vet, date and time.", confirmButtonColor: "#2563eb" });
+    if (!ownerId || patientIds.length === 0 || !veterinarianId || !date || !time) {
+      await Swal.fire({ icon: "warning", title: "Missing info", text: "Select at least one pet, vet, date and time.", confirmButtonColor: "#2563eb" });
       return;
     }
     // block past datetime (using Zamboanga timezone)
@@ -278,12 +278,13 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
       // Skip duplicate profile gating; vetted list already enforces approved + active
 
       // Final conflict check before insertion (prevents race conditions)
+      // Check for first pet (owner can only have one appointment per day)
       const conflictCheck = await checkAppointmentConflict(
         veterinarianId as number,
         date,
         time,
         ownerId,
-        patientId as number
+        patientIds[0]
       );
 
       if (conflictCheck.hasConflict) {
@@ -315,11 +316,28 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
         reason_for_visit: finalReason || null,
         clinic_id: clinicId || null,
         pet_owner_id: ownerId,
-        patient_id: patientId,
+        patient_id: patientIds[0], // Keep first pet for backward compatibility
         veterinarian_id: typeof veterinarianId === "number" ? veterinarianId : Number(veterinarianId),
         booking_type: "web",
       };
       const { data, error } = await supabase.from("appointments").insert(payload).select("*").single();
+      
+      if (error) throw error;
+      
+      // Insert all pets into junction table
+      const appointmentPetsPayload = patientIds.map(petId => ({
+        appointment_id: data.id,
+        patient_id: petId
+      }));
+      
+      const { error: junctionError } = await supabase
+        .from("appointment_patients")
+        .insert(appointmentPetsPayload);
+      
+      if (junctionError) {
+        console.error('Failed to insert appointment_patients:', junctionError);
+        // Don't fail the whole operation, just log the error
+      }
       if (error) {
         // Check for unique constraint violation (race condition - someone else booked this slot)
         if (isConstraintViolation(error)) {
@@ -348,22 +366,21 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
 
       // Notify the veterinarian with push notification
       try {
-        const { data: patientData } = await supabase
+        const { data: patientsData } = await supabase
           .from("patients")
           .select("name")
-          .eq("id", patientId)
-          .maybeSingle();
+          .in("id", patientIds);
 
-        const patientName = patientData?.name || "a patient";
+        const patientNames = (patientsData || []).map(p => p.name).join(", ") || "patients";
 
         if (vetForBooking.user_id) {
           await notifyUser({
             userId: vetForBooking.user_id,
             title: '📅 New Appointment Request',
-            message: `New appointment request for ${patientName} on ${data.appointment_date} at ${data.appointment_time}`,
+            message: `New appointment request for ${patientNames} on ${data.appointment_date} at ${data.appointment_time}`,
             notificationType: 'appointment',
             relatedAppointmentId: data.id,
-            data: { appointmentId: data.id, patientName },
+            data: { appointmentId: data.id, patientNames, petCount: patientIds.length },
           });
         }
       } catch (notifErr: any) {
@@ -401,12 +418,36 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
           </div>
 
           <div className="px-6 pb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Pet</label>
-              <select value={patientId as any} onChange={(e)=> setPatientId(e.target.value ? Number(e.target.value) : "")} className="w-full rounded-xl border border-neutral-200 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">Select pet</option>
-                {pets.map(p => <option key={p.id} value={p.id}>{p.name} {p.species ? `(${p.species})` : ""}</option>)}
-              </select>
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-neutral-700 mb-2">Pets (select one or more)</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 rounded-xl border border-neutral-200">
+                {pets.length === 0 ? (
+                  <div className="text-sm text-neutral-500 col-span-2 text-center py-4">No active pets found</div>
+                ) : (
+                  pets.map(p => (
+                    <label key={p.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-neutral-50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={patientIds.includes(p.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setPatientIds(prev => [...prev, p.id]);
+                          } else {
+                            setPatientIds(prev => prev.filter(id => id !== p.id));
+                          }
+                        }}
+                        className="rounded border-neutral-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm">{p.name} {p.species ? `(${p.species})` : ""}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+              {patientIds.length > 0 && (
+                <div className="mt-2 text-xs text-neutral-600">
+                  {patientIds.length} pet{patientIds.length !== 1 ? 's' : ''} selected
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-1">Veterinarian</label>
@@ -469,7 +510,7 @@ export default function CreateAppointmentModal({ open, ownerId, onClose, onCreat
 
           <div className="px-6 pb-6 flex items-center justify-end gap-3">
             <button onClick={onClose} className="rounded-xl border border-neutral-200 px-4 py-2 text-sm hover:bg-neutral-50">Cancel</button>
-            <button onClick={submit} disabled={saving || !patientId || !veterinarianId || !date || !time} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 text-white px-5 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-60">
+            <button onClick={submit} disabled={saving || patientIds.length === 0 || !veterinarianId || !date || !time} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 text-white px-5 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-60">
               {saving ? "Booking…" : "Book Appointment"}
             </button>
           </div>

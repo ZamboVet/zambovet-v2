@@ -335,8 +335,20 @@ export default function OwnerSettingsPage() {
             <div className="text-xs sm:text-sm text-neutral-500 truncate">Manage profile, notifications and security</div>
           </div>
         </div>
-        <div className="hidden sm:flex text-[10px] sm:text-xs text-neutral-500 items-center gap-1">
-          <CheckCircleIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" /> <span>Secure & synced</span>
+        <div className="flex items-center gap-2">
+          {ownerId && (
+            <a
+              href={`/pet_owner/profile/${ownerId}`}
+              className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-blue-600 text-white text-xs sm:text-sm font-medium hover:bg-blue-700 transition-colors"
+            >
+              <IdentificationIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">View Profile</span>
+              <span className="sm:hidden">Profile</span>
+            </a>
+          )}
+          <div className="hidden lg:flex text-[10px] sm:text-xs text-neutral-500 items-center gap-1">
+            <CheckCircleIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" /> <span>Secure & synced</span>
+          </div>
         </div>
       </div>
 

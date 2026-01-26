@@ -152,6 +152,15 @@ export default function NotificationsBell() {
         const icon = newNotif.type || "info";
         Swal.fire({ icon, title: newNotif.title, text: newNotif.body, confirmButtonColor: "#2563eb" });
       })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` }, (payload) => {
+        const notif: any = payload.new;
+        // Update the notification in local state
+        setItems((prev) => prev.map(item => 
+          item.id === String(notif.id) 
+            ? { ...item, read: notif.is_read }
+            : item
+        ));
+      })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [userId]);
@@ -210,16 +219,25 @@ export default function NotificationsBell() {
           <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
             <div className="text-sm font-semibold text-neutral-800">Notifications</div>
             {unread > 0 && (
-              <button onClick={() => setItems(prev => prev.map(i => ({...i, read: true})))} className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-neutral-100 hover:bg-neutral-200"><CheckIcon className="w-3.5 h-3.5"/> Mark read</button>
+              <button onClick={async () => {
+                if (!userId) return;
+                try {
+                  // Update database first
+                  await supabase.from('notifications').update({ is_read: true }).eq('user_id', userId).eq('is_read', false);
+                  // Then update local state
+                  setItems(prev => prev.map(i => ({...i, read: true})));
+                } catch (err) {
+                  console.error('Failed to mark all as read:', err);
+                }
+              }} className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-neutral-100 hover:bg-neutral-200"><CheckIcon className="w-3.5 h-3.5"/> Mark read</button>
             )}
           </div>
-          {items.length === 0 ? (
-            <div className="p-6 text-sm text-neutral-500">No notifications yet.</div>
+          {items.filter(n => !n.read).length === 0 ? (
+            <div className="p-6 text-sm text-neutral-500">No unread notifications.</div>
           ) : (
             <ul className="max-h-80 overflow-auto divide-y divide-neutral-100">
-              {items.map(n => {
-                const getNotificationStyle = (type?: string, read?: boolean) => {
-                  if (read) return 'bg-white';
+              {items.filter(n => !n.read).map(n => {
+                const getNotificationStyle = (type?: string) => {
                   switch (type) {
                     case 'success': return 'bg-green-50/80 border-l-4 border-green-500';
                     case 'error': return 'bg-red-50/80 border-l-4 border-red-500';
@@ -228,14 +246,28 @@ export default function NotificationsBell() {
                   }
                 };
                 return (
-                  <li key={n.id} className={`p-3 ${getNotificationStyle(n.type, n.read)}`}>
+                  <li 
+                    key={n.id} 
+                    className={`p-3 ${getNotificationStyle(n.type)} cursor-pointer hover:opacity-80 transition-opacity`}
+                    onClick={async () => {
+                      if (!userId) return;
+                      try {
+                        // Mark as read in database
+                        await supabase.from('notifications').update({ is_read: true }).eq('id', parseInt(n.id));
+                        // Update local state
+                        setItems(prev => prev.map(item => item.id === n.id ? { ...item, read: true } : item));
+                      } catch (err) {
+                        console.error('Failed to mark notification as read:', err);
+                      }
+                    }}
+                  >
                     <div className="flex items-start gap-2">
                       <div className="flex-1">
                         <div className="text-[13px] font-medium text-neutral-900">{n.title}</div>
                         {n.body && <div className="text-xs text-neutral-600 mt-0.5 leading-relaxed">{n.body}</div>}
                         <div className="text-[10px] text-neutral-400 mt-1">{new Date(n.ts).toLocaleString()}</div>
                       </div>
-                      {n.type === 'success' && !n.read && (
+                      {n.type === 'success' && (
                         <div className="flex-shrink-0 w-2 h-2 rounded-full bg-green-500 mt-1"></div>
                       )}
                     </div>

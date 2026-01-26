@@ -11,7 +11,18 @@ import AllClinicsMapModal from "../components/AllClinicsMapModal";
 import { useRouter } from "next/navigation";
 
 type Review = { id: number; rating: number; title: string | null; comment: string | null; created_at: string };
-type Clinic = { id: number; name: string; address: string | null; phone: string | null; city?: string | null; rating?: number | null; reviews?: Review[] };
+type Clinic = {
+  id: number;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  city?: string | null;
+  rating?: number | null;
+  reviews?: Review[];
+  profile_image_url?: string | null;
+  services?: string[] | null;
+  specializations?: string[] | null;
+};
 
 export default function OwnerClinicsPage() {
   const router = useRouter();
@@ -68,7 +79,7 @@ export default function OwnerClinicsPage() {
     const fetchList = async () => {
       setLoading(true);
       try {
-        let q = supabase.from("clinics").select("id,name,address,phone,city").order("name", { ascending: true });
+        let q = supabase.from("clinics").select("id,name,address,phone,city,profile_image_url,services,specializations").order("name", { ascending: true });
         if (query.trim()) q = q.ilike("name", `%${query.trim()}%`);
         const { data, error } = await q;
         if (error) throw error;
@@ -222,7 +233,7 @@ export default function OwnerClinicsPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "clinics" }, () => {
         (async () => {
           try {
-            let q = supabase.from("clinics").select("id,name,address,phone,city").order("name", { ascending: true });
+            let q = supabase.from("clinics").select("id,name,address,phone,city,profile_image_url,services,specializations").order("name", { ascending: true });
             if (query.trim()) q = q.ilike("name", `%${query.trim()}%`);
             const { data } = await q;
             setItems((data || []) as any);
@@ -303,8 +314,20 @@ export default function OwnerClinicsPage() {
               <div className="p-3 sm:p-4">
                 <div className="flex items-start justify-between gap-2 sm:gap-3">
                   <div className="flex items-start gap-2 sm:gap-3 min-w-0 flex-1">
-                    <div className="shrink-0 h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 rounded-lg sm:rounded-xl bg-emerald-50 text-emerald-700 grid place-items-center ring-1 ring-emerald-100">
-                      <BuildingOffice2Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                    {c.profile_image_url ? (
+                      <img
+                        src={c.profile_image_url}
+                        alt={`${c.name} logo`}
+                        className="shrink-0 h-10 w-10 sm:h-11 sm:w-11 md:h-12 md:w-12 rounded-lg sm:rounded-xl object-cover ring-2 ring-emerald-600"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                          if (fallback) fallback.style.display = 'grid';
+                        }}
+                      />
+                    ) : null}
+                    <div className="shrink-0 h-10 w-10 sm:h-11 sm:w-11 md:h-12 md:w-12 rounded-lg sm:rounded-xl bg-emerald-50 text-emerald-700 grid place-items-center ring-1 ring-emerald-100" style={{ display: c.profile_image_url ? 'none' : 'grid' }}>
+                      <BuildingOffice2Icon className="w-5 h-5 sm:w-6 sm:w-6" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <Link href={`/pet_owner/clinics/${c.id}`} className="block font-semibold text-neutral-900 tracking-tight text-xs sm:text-sm md:text-base line-clamp-2 hover:underline" title={c.name}>{c.name}</Link>
@@ -316,6 +339,23 @@ export default function OwnerClinicsPage() {
                         <div className="mt-1 flex items-center gap-1.5 text-[10px] sm:text-xs md:text-sm text-neutral-600">
                           <PhoneIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 shrink-0" />
                           <span className="truncate" title={c.phone}>{c.phone}</span>
+                        </div>
+                      )}
+                      {c.services && c.services.length > 0 && (
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {c.services.slice(0, 3).map((service, idx) => (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-emerald-50 ring-1 ring-emerald-200 text-[9px] sm:text-[10px] font-medium text-emerald-700"
+                            >
+                              {service}
+                            </span>
+                          ))}
+                          {c.services.length > 3 && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-neutral-100 text-[9px] sm:text-[10px] text-neutral-600">
+                              +{c.services.length - 3}
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>

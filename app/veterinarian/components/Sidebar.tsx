@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Swal from "sweetalert2";
 import { supabase } from "../../../lib/supabaseClient";
-import { CalendarDaysIcon, Cog6ToothIcon, HomeIcon, UserGroupIcon, StarIcon, BellIcon } from "@heroicons/react/24/outline";
+import { CalendarDaysIcon, Cog6ToothIcon, HomeIcon, UserGroupIcon, StarIcon, BellIcon, ChartBarIcon } from "@heroicons/react/24/outline";
 
 type Props = { open: boolean; onClose: () => void; primary: string; collapsed: boolean; onToggleCollapse: () => void };
 
@@ -15,6 +15,7 @@ const nav: NavItem[] = [
   { label: "Appointment Management", sub: "Manage patient appointments", href: "/veterinarian/appointments", icon: CalendarDaysIcon },
   { label: "Patient Records", sub: "Access medical records", href: "/veterinarian/patients", icon: UserGroupIcon },
   { label: "Daily Records", sub: "Diary entries by date", href: "/veterinarian/patients/daily", icon: CalendarDaysIcon },
+  { label: "Reports & Analytics", sub: "Performance and statistics", href: "/veterinarian/reports", icon: ChartBarIcon },
   { label: "Clinic Location", sub: "Set map coordinates", href: "/veterinarian/clinic/location", icon: CalendarDaysIcon },
   { label: "Notifications", sub: "Latest updates", href: "/veterinarian/notifications", icon: BellIcon },
   { label: "Professional Profile", sub: "Update your credentials", href: "/veterinarian/settings", icon: Cog6ToothIcon },
