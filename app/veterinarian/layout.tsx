@@ -9,6 +9,7 @@ import PendingVetBanner from "./components/PendingVetBanner";
 import { getVetAccessControl } from "../../lib/utils/vetAccessControl";
 import { supabase } from "../../lib/supabaseClient";
 import { usePushNotifications } from "../../lib/hooks/usePushNotifications";
+import SessionTimeoutProvider from "../../lib/components/SessionTimeoutProvider";
 
 const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 const PRIMARY = "#0B63C7";
@@ -102,27 +103,33 @@ function VetLayoutInner({ children }: { children: React.ReactNode }) {
   if (!mounted || !authorized) return null;
 
   return (
+    <SessionTimeoutProvider redirectTo="/login">
     <div
       className={`${poppins.className} min-h-screen relative overflow-x-hidden`}
       style={{
-        // Light veterinary palette
+        // Modern veterinary palette with CSS variables
         // @ts-ignore
         ['--brand' as any]: PRIMARY,
         ['--brand-50' as any]: '#eff6ff',
         ['--brand-100' as any]: '#dbeafe',
         ['--brand-200' as any]: '#bfdbfe',
-        ['--brand-300' as any]: '#a7f3d0',
+        ['--brand-300' as any]: '#93c5fd',
+        ['--brand-400' as any]: '#60a5fa',
+        ['--brand-500' as any]: '#3b82f6',
+        ['--brand-600' as any]: '#2563eb',
       }}
     >
-      <div className="absolute inset-0 -z-10">
-        <div className="w-full h-full bg-[radial-gradient(ellipse_at_top_left,rgba(219,234,254,0.9),transparent_50%),radial-gradient(ellipse_at_bottom_right,rgba(224,242,254,0.9),transparent_50%)]" />
-      </div>
+      {/* Clean background */}
+      <div className="fixed inset-0 -z-10 bg-slate-50" />
+      
+      {/* Mobile overlay */}
       {open && (
         <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-[2px] lg:hidden z-30"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm lg:hidden z-30 transition-opacity"
           onClick={() => setOpen(false)}
         />
       )}
+      
       <div className="flex min-h-screen">
         <Sidebar
           open={open}
@@ -131,13 +138,14 @@ function VetLayoutInner({ children }: { children: React.ReactNode }) {
           collapsed={collapsed}
           onToggleCollapse={() => setCollapsed(v => !v)}
         />
-        <div className="flex-1 min-w-0 flex flex-col transition-[padding] duration-300 ease-in-out">
+        <div className="flex-1 min-w-0 flex flex-col transition-all duration-300 ease-out">
           <HeaderBar onMenu={() => setOpen(true)} primary={PRIMARY} />
           <PendingVetBanner isPending={isPending} />
-          <main className="px-4 sm:px-6 lg:px-8 pb-8">{children}</main>
+          <main className="flex-1 px-3 sm:px-4 md:px-6 lg:px-8 pb-6 sm:pb-8">{children}</main>
         </div>
       </div>
     </div>
+    </SessionTimeoutProvider>
   );
 }
 

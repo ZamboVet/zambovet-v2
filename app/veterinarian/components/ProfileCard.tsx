@@ -1,6 +1,6 @@
 "use client";
 
-import { UserCircleIcon } from "@heroicons/react/24/outline";
+import Link from "next/link";
 
 type Props = {
   name: string;
@@ -14,26 +14,35 @@ type Props = {
 };
 
 export default function ProfileCard({ name, specialization, email, verification, primary, category, classificationLevel, licenseType }: Props) {
+  const items = [
+    { label: "Name", value: name || "-" },
+    { label: "Specialization", value: specialization || "General Practice" },
+    { label: "Email", value: email || "-" },
+    { label: "Status", value: verification || "pending" },
+  ];
+  
+  if (category) items.push({ label: "Category", value: category });
+  if (classificationLevel) items.push({ label: "Classification", value: classificationLevel });
+  if (licenseType) items.push({ label: "License Type", value: licenseType });
+
   return (
-    <div className="rounded-2xl bg-white p-5 shadow ring-1 ring-black/5">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold" style={{ color: primary }}>Profile</h2>
-        <UserCircleIcon className="w-6 h-6 text-gray-500" />
+    <div className="bg-white rounded-xl border border-neutral-200">
+      <div className="px-4 py-3 border-b border-neutral-200 flex items-center justify-between">
+        <h2 className="font-semibold text-neutral-900">Profile</h2>
+        <Link href="/veterinarian/settings" className="text-sm text-blue-600 hover:underline">
+          Edit
+        </Link>
       </div>
-      <div className="grid sm:grid-cols-2 gap-3 text-sm">
-        <div className="rounded-xl p-3 bg-gray-50"><span className="text-gray-500">Name</span><div className="font-medium" style={{ color: primary }}>{name || "-"}</div></div>
-        <div className="rounded-xl p-3 bg-gray-50"><span className="text-gray-500">Specialization</span><div className="font-medium" style={{ color: primary }}>{specialization || "General"}</div></div>
-        <div className="rounded-xl p-3 bg-gray-50"><span className="text-gray-500">Email</span><div className="font-medium" style={{ color: primary }}>{email || "-"}</div></div>
-        <div className="rounded-xl p-3 bg-gray-50"><span className="text-gray-500">Verification</span><div className="font-medium" style={{ color: primary }}>{verification || "pending"}</div></div>
-        {category ? (
-          <div className="rounded-xl p-3 bg-gray-50"><span className="text-gray-500">Category</span><div className="font-medium" style={{ color: primary }}>{category}</div></div>
-        ) : null}
-        {classificationLevel ? (
-          <div className="rounded-xl p-3 bg-gray-50"><span className="text-gray-500">Classification Level</span><div className="font-medium" style={{ color: primary }}>{classificationLevel}</div></div>
-        ) : null}
-        {licenseType ? (
-          <div className="rounded-xl p-3 bg-gray-50"><span className="text-gray-500">License Type</span><div className="font-medium" style={{ color: primary }}>{licenseType}</div></div>
-        ) : null}
+      
+      <div className="p-4 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {items.map((item, idx) => (
+          <div key={idx}>
+            <p className="text-xs text-neutral-500 mb-1">{item.label}</p>
+            <p className="text-sm font-medium text-neutral-900 truncate" title={item.value}>
+              {item.value}
+            </p>
+          </div>
+        ))}
       </div>
     </div>
   );

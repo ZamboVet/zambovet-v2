@@ -453,19 +453,151 @@ function ClinicLocationPageInner() {
       </div>
 
       <div className="rounded-3xl bg-white/80 backdrop-blur-sm p-5 shadow ring-1 ring-black/5">
-        <div className="text-lg font-semibold mb-3" style={{ color: PRIMARY }}>Opening hours</div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
-          {(["Mon","Tue","Wed","Thu","Fri","Sat","Sun"] as const).map(d => (
-            <div key={d} className="flex flex-wrap items-center gap-3 px-3 py-2 rounded-xl bg-white/90 ring-1 ring-gray-200">
-              <span className="w-10 text-gray-600">{d}</span>
-              <label className="inline-flex items-center gap-1 text-xs text-gray-600">
-                <input type="checkbox" checked={!!hours[d].closed} onChange={(e)=> setHours(h => ({ ...h, [d]: { ...h[d], closed: e.target.checked } }))} /> Closed
-              </label>
-              <input type="time" value={hours[d].open} onChange={(e)=> setHours(h => ({ ...h, [d]: { ...h[d], open: e.target.value } }))} disabled={!!hours[d].closed} className="ml-auto outline-none bg-transparent w-[5.5rem]" />
-              <span className="text-gray-300">–</span>
-              <input type="time" value={hours[d].close} onChange={(e)=> setHours(h => ({ ...h, [d]: { ...h[d], close: e.target.value } }))} disabled={!!hours[d].closed} className="outline-none bg-transparent w-[5.5rem]" />
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <div>
+            <div className="text-lg font-semibold" style={{ color: PRIMARY }}>Business Hours</div>
+            <div className="text-xs text-gray-500 mt-0.5">Set your clinic's operating schedule</div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const weekdayHours = { open: "09:00", close: "17:00", closed: false };
+                setHours(h => ({
+                  ...h,
+                  Mon: weekdayHours,
+                  Tue: weekdayHours,
+                  Wed: weekdayHours,
+                  Thu: weekdayHours,
+                  Fri: weekdayHours,
+                }));
+              }}
+              className="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100 ring-1 ring-blue-200 transition"
+            >
+              Set Weekdays 9-5
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setHours(h => ({
+                  ...h,
+                  Sat: { open: "09:00", close: "12:00", closed: false },
+                  Sun: { open: "09:00", close: "12:00", closed: true },
+                }));
+              }}
+              className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 text-xs font-medium hover:bg-amber-100 ring-1 ring-amber-200 transition"
+            >
+              Weekend Half-day
+            </button>
+          </div>
+        </div>
+        
+        <div className="space-y-2">
+          {(["Mon","Tue","Wed","Thu","Fri","Sat","Sun"] as const).map((d, idx) => {
+            const dayNames: Record<string, string> = {
+              Mon: "Monday", Tue: "Tuesday", Wed: "Wednesday", Thu: "Thursday",
+              Fri: "Friday", Sat: "Saturday", Sun: "Sunday"
+            };
+            const isWeekend = d === "Sat" || d === "Sun";
+            const isClosed = !!hours[d].closed;
+            
+            return (
+              <div 
+                key={d} 
+                className={`flex flex-col sm:flex-row sm:items-center gap-3 p-3 sm:p-4 rounded-xl transition-all ${
+                  isClosed 
+                    ? "bg-neutral-50 ring-1 ring-neutral-200" 
+                    : isWeekend 
+                      ? "bg-amber-50/50 ring-1 ring-amber-200" 
+                      : "bg-blue-50/50 ring-1 ring-blue-200"
+                }`}
+              >
+                <div className="flex items-center gap-3 min-w-[140px]">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold ${
+                    isClosed 
+                      ? "bg-neutral-200 text-neutral-500" 
+                      : isWeekend 
+                        ? "bg-amber-500 text-white" 
+                        : "bg-blue-600 text-white"
+                  }`}>
+                    {d}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className={`font-medium text-sm ${isClosed ? "text-neutral-500" : "text-neutral-900"}`}>
+                      {dayNames[d]}
+                    </div>
+                    <div className={`text-xs ${isClosed ? "text-neutral-400" : "text-neutral-500"}`}>
+                      {isClosed ? "Closed" : `${hours[d].open} - ${hours[d].close}`}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3 flex-1 sm:justify-end">
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={!isClosed}
+                      onChange={(e) => setHours(h => ({ ...h, [d]: { ...h[d], closed: !e.target.checked } }))}
+                      className="sr-only peer" 
+                    />
+                    <div className="w-11 h-6 bg-neutral-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    <span className="ml-2 text-xs font-medium text-neutral-600 w-12">{isClosed ? "Closed" : "Open"}</span>
+                  </label>
+                  
+                  <div className={`flex items-center gap-2 transition-opacity ${isClosed ? "opacity-40 pointer-events-none" : "opacity-100"}`}>
+                    <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-white ring-1 ring-neutral-200">
+                      <span className="text-[10px] text-neutral-500 uppercase tracking-wide">From</span>
+                      <input 
+                        type="time" 
+                        value={hours[d].open} 
+                        onChange={(e) => setHours(h => ({ ...h, [d]: { ...h[d], open: e.target.value } }))}
+                        disabled={isClosed}
+                        className="outline-none bg-transparent text-sm font-medium w-[4.5rem] text-neutral-900" 
+                      />
+                    </div>
+                    <span className="text-neutral-400">-</span>
+                    <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-white ring-1 ring-neutral-200">
+                      <span className="text-[10px] text-neutral-500 uppercase tracking-wide">To</span>
+                      <input 
+                        type="time" 
+                        value={hours[d].close} 
+                        onChange={(e) => setHours(h => ({ ...h, [d]: { ...h[d], close: e.target.value } }))}
+                        disabled={isClosed}
+                        className="outline-none bg-transparent text-sm font-medium w-[4.5rem] text-neutral-900" 
+                      />
+                    </div>
+                  </div>
+                  
+                  {idx > 0 && !isClosed && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const prevDay = (["Mon","Tue","Wed","Thu","Fri","Sat","Sun"] as const)[idx - 1];
+                        setHours(h => ({ ...h, [d]: { ...h[prevDay] } }));
+                      }}
+                      className="hidden sm:flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-neutral-500 hover:bg-neutral-100 transition"
+                      title="Copy from previous day"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        
+        <div className="mt-4 p-3 rounded-xl bg-blue-50 ring-1 ring-blue-100">
+          <div className="flex items-start gap-2">
+            <svg className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div className="text-xs text-blue-800">
+              <span className="font-medium">Tip:</span> Your business hours help pet owners know when they can book appointments. Make sure to keep them updated for holidays or special schedules.
             </div>
-          ))}
+          </div>
         </div>
       </div>
     </div>

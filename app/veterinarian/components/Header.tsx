@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 type Props = {
@@ -13,40 +12,79 @@ type Props = {
 };
 
 export default function Header({ name, online, verification, specialization, onToggle, primary }: Props) {
-  const [show, setShow] = useState(false);
   const [mounted, setMounted] = useState(false);
-  useEffect(() => { const t = setTimeout(()=>setShow(true), 20); setMounted(true); return () => clearTimeout(t); }, []);
-  const now = useMemo(() => (mounted ? new Date() : null), [mounted]);
-  const dateStr = now ? now.toLocaleString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : "";
-  const timeStr = now
-    ? now.toLocaleTimeString(undefined, {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-      })
-    : "";
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
+  
+  useEffect(() => { 
+    setMounted(true);
+    setCurrentTime(new Date());
+    const interval = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(interval);
+  }, []);
+  
+  const greeting = useMemo(() => {
+    if (!currentTime) return "Hello";
+    const hour = currentTime.getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
+  }, [currentTime]);
+  
+  const dateStr = currentTime ? currentTime.toLocaleDateString(undefined, { 
+    weekday: 'long', 
+    month: 'long', 
+    day: 'numeric' 
+  }) : "";
+
+  const firstName = name.split(' ')[0];
+
   return (
-    <div className={`relative rounded-3xl p-6 sm:p-8 text-white transition-all duration-300 ${show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}
-      style={{
-        background: "linear-gradient(135deg, #0B63C7, #4F46E5)",
-      }}
-    >
-      <div className="pointer-events-none absolute inset-0 rounded-3xl" style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.08) 1px, transparent 1px)", backgroundSize: "18px 18px" }} />
-      <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6 pointer-events-auto">
+    <div className="bg-white rounded-xl border border-neutral-200 p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        {/* Left section */}
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Good Morning, {name}</h1>
-          <p className="mt-1 text-white/90">Ready to provide excellent care today?</p>
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs sm:text-sm">
-            <span suppressHydrationWarning className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 ring-1 ring-white/20">{mounted ? `${dateStr} at ${timeStr}` : ""}</span>
-            {specialization && (
-              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 ring-1 ring-white/20">{specialization}</span>
-            )}
-            <button onClick={onToggle} className={`inline-flex items-center px-3 py-1 rounded-full ring-1 transition hover:opacity-80 ${online ? "bg-emerald-400/20 ring-emerald-200 text-emerald-50" : "bg-white/10 ring-white/20 text-white/80"}`} style={{ cursor: 'pointer' }} title={`Click to go ${online ? 'offline' : 'online'}`}>{online ? "● Online" : "● Offline"}</button>
-            <span className={`inline-flex items-center px-3 py-1 rounded-full ring-1 ${verification === "approved" ? "bg-blue-400/20 ring-blue-200 text-blue-50" : "bg-amber-400/20 ring-amber-200 text-amber-50"}`}>{verification || "pending"}</span>
+          <h1 className="text-xl sm:text-2xl font-semibold text-neutral-900">
+            {greeting}, {firstName}
+          </h1>
+          <p suppressHydrationWarning className="text-sm text-neutral-500 mt-1">
+            {mounted ? dateStr : ""}
+            {specialization && <span className="mx-2">·</span>}
+            {specialization}
+          </p>
+          
+          <div className="flex items-center gap-2 mt-3">
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${
+              verification === "approved" 
+                ? "bg-green-50 text-green-700" 
+                : "bg-amber-50 text-amber-700"
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${verification === "approved" ? "bg-green-500" : "bg-amber-500"}`} />
+              {verification === "approved" ? "Verified" : "Pending verification"}
+            </span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={onToggle} className="px-4 py-2 rounded-xl bg-white/90 text-blue-700 hover:bg-white transition active:scale-[.98]" style={{ cursor: 'pointer' }}>{online ? "Go Offline" : "Go Online"}</button>
+        
+        {/* Right section - Status */}
+        <div className="flex items-center gap-3">
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
+            online ? "bg-green-50" : "bg-neutral-100"
+          }`}>
+            <span className={`w-2 h-2 rounded-full ${online ? "bg-green-500" : "bg-neutral-400"}`} />
+            <span className={`text-sm font-medium ${online ? "text-green-700" : "text-neutral-600"}`}>
+              {online ? "Online" : "Offline"}
+            </span>
+          </div>
+          
+          <button 
+            onClick={onToggle} 
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+              online 
+                ? "bg-neutral-100 text-neutral-700 hover:bg-neutral-200" 
+                : "bg-blue-600 text-white hover:bg-blue-700"
+            }`}
+          >
+            {online ? "Go Offline" : "Go Online"}
+          </button>
         </div>
       </div>
     </div>

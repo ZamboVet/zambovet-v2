@@ -197,51 +197,58 @@ export default function VetDashboardPage() {
   
 
   return (
-    <div className={`${poppins.className}`}> 
-      <div className="w-full max-w-none mx-0 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 space-y-5">
-        <Header
-          name={vet?.full_name || profile?.full_name || "Veterinarian"}
-          online={!!vet?.is_available}
-          verification={profile?.verification_status || "pending"}
-          specialization={vet?.specialization || "General Practice"}
-          onToggle={toggleAvailability}
-          primary={PRIMARY}
-        />
+    <div className={`${poppins.className} space-y-4 sm:space-y-6`}> 
+      {/* Hero Header */}
+      <Header
+        name={vet?.full_name || profile?.full_name || "Veterinarian"}
+        online={!!vet?.is_available}
+        verification={profile?.verification_status || "pending"}
+        specialization={vet?.specialization || "General Practice"}
+        onToggle={toggleAvailability}
+        primary={PRIMARY}
+      />
 
-        <div className="rounded-3xl bg-white/70 backdrop-blur p-5 sm:p-6 shadow-md space-y-6">
-          <RestrictedAccessOverlay isRestricted={isPending}>
-            <KPIs today={counts.today} pending={counts.pending} confirmed={counts.confirmed} rating={vet?.average_rating ?? 0} primary={PRIMARY} />
-          </RestrictedAccessOverlay>
+      {/* KPIs Section */}
+      <RestrictedAccessOverlay isRestricted={isPending}>
+        <KPIs today={counts.today} pending={counts.pending} confirmed={counts.confirmed} rating={vet?.average_rating ?? 0} primary={PRIMARY} />
+      </RestrictedAccessOverlay>
 
-          <QuickActions />
+      {/* Quick Actions */}
+      <QuickActions />
 
-          <RestrictedAccessOverlay isRestricted={isPending}>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <UpcomingAppointments
-                appointments={appointments}
-                loading={loading}
-                range={range}
-                setRange={setRange}
-                mounted={mounted}
-                primary={PRIMARY}
-              />
-              <RecentReviews reviews={reviews} loading={loading} primary={PRIMARY} />
-            </div>
-          </RestrictedAccessOverlay>
-
-          <ProfileCard
-            name={vet?.full_name || profile?.full_name || "-"}
-            specialization={vet?.specialization || "General"}
-            email={profile?.email || null}
-            verification={profile?.verification_status || "pending"}
-            primary={PRIMARY}
-            category={vetClass?.category || null}
-            classificationLevel={vetClass?.classification_level || null}
-            licenseType={vetClass?.license_type || null}
-          />
+      {/* Main Content Grid */}
+      <RestrictedAccessOverlay isRestricted={isPending}>
+        <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
+          {/* Appointments - Takes 2 columns on large screens */}
+          <div className="lg:col-span-2">
+            <UpcomingAppointments
+              appointments={appointments}
+              loading={loading}
+              range={range}
+              setRange={setRange}
+              mounted={mounted}
+              primary={PRIMARY}
+            />
+          </div>
+          
+          {/* Reviews - Takes 1 column */}
+          <div className="lg:col-span-1">
+            <RecentReviews reviews={reviews} loading={loading} primary={PRIMARY} />
+          </div>
         </div>
+      </RestrictedAccessOverlay>
 
-      </div>
+      {/* Profile Card */}
+      <ProfileCard
+        name={vet?.full_name || profile?.full_name || "-"}
+        specialization={vet?.specialization || "General"}
+        email={profile?.email || null}
+        verification={profile?.verification_status || "pending"}
+        primary={PRIMARY}
+        category={vetClass?.category || null}
+        classificationLevel={vetClass?.classification_level || null}
+        licenseType={vetClass?.license_type || null}
+      />
     </div>
   );
 }

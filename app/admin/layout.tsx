@@ -7,6 +7,7 @@ import AdminSidebar from "./components/Sidebar";
 import AdminTopbar from "./components/Topbar";
 import { supabase } from "../../lib/supabaseClient";
 import { usePushNotifications } from "../../lib/hooks/usePushNotifications";
+import SessionTimeoutProvider from "../../lib/components/SessionTimeoutProvider";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -86,6 +87,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (!authorized) return null;
 
   return (
+    <SessionTimeoutProvider redirectTo="/login">
     <div className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-white bg-[radial-gradient(circle_at_80%_0%,rgba(37,99,235,0.08),transparent_60%)] text-gray-900">
       {/* Mobile overlay when sidebar is open */}
       {open && (
@@ -107,5 +109,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </div>
     </div>
+    </SessionTimeoutProvider>
   );
 }

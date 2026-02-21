@@ -1,42 +1,58 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarDaysIcon, UserGroupIcon, Cog6ToothIcon, StarIcon } from "@heroicons/react/24/outline";
+import { 
+  CalendarDaysIcon, 
+  UserGroupIcon, 
+  MapPinIcon,
+  StarIcon
+} from "@heroicons/react/24/outline";
+
+const actions = [
+  {
+    href: "/veterinarian/appointments",
+    icon: CalendarDaysIcon,
+    title: "Appointments",
+    desc: "Manage schedule",
+  },
+  {
+    href: "/veterinarian/patients",
+    icon: UserGroupIcon,
+    title: "Patients",
+    desc: "Medical records",
+  },
+  {
+    href: "/veterinarian/clinic/location",
+    icon: MapPinIcon,
+    title: "Clinic",
+    desc: "Location & hours",
+  },
+  {
+    href: "/veterinarian/reviews",
+    icon: StarIcon,
+    title: "Reviews",
+    desc: "Patient feedback",
+  },
+];
 
 export default function QuickActions() {
   return (
-    <div className="rounded-3xl bg-white/70 backdrop-blur p-5 sm:p-6 shadow ring-1 ring-black/5">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-xl font-semibold text-gray-800">Quick Actions</div>
-          <div className="text-sm text-gray-500">Access your most important tools</div>
-        </div>
-        <div className="text-xs text-emerald-600">All systems operational</div>
-      </div>
-      <div className="mt-5 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <ActionCard href="/veterinarian/appointments" icon={CalendarDaysIcon} title="Appointments" desc="Manage patient appointments and schedule" color="from-blue-50 to-blue-100" />
-        <ActionCard href="/veterinarian/patients" icon={UserGroupIcon} title="Patient Records" desc="Access comprehensive medical records" color="from-green-50 to-green-100" />
-        <ActionCard href="/veterinarian/settings" icon={Cog6ToothIcon} title="Profile" desc="Update professional credentials" color="from-purple-50 to-purple-100" />
-        <ActionCard href="/veterinarian/earnings" icon={StarIcon} title="Reviews" desc="View patient feedback and ratings" color="from-amber-50 to-amber-100" />
-      </div>
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {actions.map((action) => (
+        <Link 
+          key={action.href}
+          href={action.href} 
+          className="flex items-center gap-3 p-3 sm:p-4 bg-white rounded-xl border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50 transition"
+        >
+          <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
+            <action.icon className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="font-medium text-neutral-900 text-sm">{action.title}</p>
+            <p className="text-xs text-neutral-500 truncate">{action.desc}</p>
+          </div>
+        </Link>
+      ))}
     </div>
-  );
-}
-
-function ActionCard({ href, icon: Icon, title, desc, color }: { href: string; icon: any; title: string; desc: string; color: string }) {
-  return (
-    <Link href={href} className={`relative block rounded-2xl p-4 bg-gradient-to-br ${color} ring-1 ring-black/5 hover:shadow-md transition active:scale-[.99]`}>
-      <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-xl grid place-items-center bg-white text-blue-700">
-          <Icon className="w-5 h-5" />
-        </div>
-        <div className="min-w-0">
-          <div className="font-semibold text-gray-800">{title}</div>
-          <div className="text-xs text-gray-500">{desc}</div>
-          <div className="mt-3 text-sm text-blue-700">Open →</div>
-        </div>
-      </div>
-      <div className="absolute right-3 top-3 w-10 h-10 rounded-full bg-white/50" />
-    </Link>
   );
 }

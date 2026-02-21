@@ -32,50 +32,103 @@ export default function UpcomingAppointments({ appointments, loading, range, set
     return `${hour12}:${minutes} ${period}`;
   };
 
+  const formatDate = (dateStr: string) => {
+    try {
+      const date = new Date(dateStr);
+      const today = new Date();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      if (dateStr === today.toISOString().slice(0, 10)) return "Today";
+      if (dateStr === tomorrow.toISOString().slice(0, 10)) return "Tomorrow";
+      
+      return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const getStatusStyle = (status: string) => {
+    switch (status) {
+      case 'confirmed': return "bg-green-50 text-green-700";
+      case 'pending': return "bg-amber-50 text-amber-700";
+      case 'completed': return "bg-blue-50 text-blue-700";
+      default: return "bg-neutral-100 text-neutral-600";
+    }
+  };
+
   return (
-    <div className="lg:col-span-2 rounded-2xl bg-white p-5 shadow ring-1 ring-black/5">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-        <h2 className="text-lg font-semibold" style={{ color: primary }}>Upcoming Appointments</h2>
+    <div className="bg-white rounded-xl border border-neutral-200">
+      <div className="px-4 py-3 border-b border-neutral-200 flex items-center justify-between">
+        <h2 className="font-semibold text-neutral-900">Upcoming Appointments</h2>
         {mounted ? (
-          <select suppressHydrationWarning value={range} onChange={(e) => setRange(e.target.value)} className="text-sm outline-none bg-white border rounded-lg px-2 py-1 max-w-full">
-            <option value="7d">Next 7 days</option>
-            <option value="30d">Next 30 days</option>
-            <option value="90d">Next 90 days</option>
+          <select 
+            suppressHydrationWarning 
+            value={range} 
+            onChange={(e) => setRange(e.target.value)} 
+            className="text-sm outline-none bg-neutral-100 rounded-lg px-2 py-1"
+          >
+            <option value="7d">7 days</option>
+            <option value="30d">30 days</option>
+            <option value="90d">90 days</option>
           </select>
         ) : (
-          <select className="text-sm outline-none bg-white border rounded-lg px-2 py-1 max-w-full" defaultValue={range} aria-hidden>
-            <option value="7d">Next 7 days</option>
-            <option value="30d">Next 30 days</option>
-            <option value="90d">Next 90 days</option>
+          <select className="text-sm outline-none bg-neutral-100 rounded-lg px-2 py-1" defaultValue={range}>
+            <option value="7d">7 days</option>
+            <option value="30d">30 days</option>
+            <option value="90d">90 days</option>
           </select>
         )}
       </div>
-      <ul className="divide-y">
+      
+      <div className="divide-y divide-neutral-100">
         {loading ? (
-          <li className="py-6 text-center text-sm text-gray-500">Loading…</li>
+          <div className="p-4 text-sm text-neutral-500">Loading...</div>
         ) : appointments.length === 0 ? (
-          <li className="py-10">
-            <div className="flex flex-col items-center gap-2 text-center">
-              <CalendarDaysIcon className="w-10 h-10 text-blue-400" />
-              <div className="text-sm text-gray-600">No upcoming appointments</div>
-              <Link href="/veterinarian/appointments" className="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700 active:scale-[.98]">Create appointment →</Link>
-            </div>
-          </li>
+          <div className="p-8 text-center">
+            <CalendarDaysIcon className="w-10 h-10 text-neutral-300 mx-auto mb-2" />
+            <p className="text-sm text-neutral-500">No upcoming appointments</p>
+            <Link href="/veterinarian/appointments" className="text-sm text-blue-600 hover:underline mt-2 inline-block">
+              View all appointments
+            </Link>
+          </div>
         ) : (
-          appointments.map(a => (
-            <li key={a.id} className="py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <CalendarDaysIcon className="w-9 h-9 rounded-xl p-2 bg-blue-50 text-blue-700" />
-                <div>
-                  <div className="font-medium" style={{ color: primary }}>{a.appointment_date} • {formatTime(a.appointment_time)}</div>
-                  <div className="text-sm text-gray-500 truncate">{a.reason_for_visit || "Consultation"}</div>
-                </div>
+          appointments.slice(0, 5).map((a) => (
+            <Link
+              key={a.id}
+              href={`/veterinarian/consultations/${a.id}`}
+              className="flex items-center gap-3 px-4 py-3 hover:bg-neutral-50"
+            >
+              <div className="w-12 h-12 rounded-lg bg-neutral-100 flex flex-col items-center justify-center text-center">
+                <span className="text-xs text-neutral-500">{formatDate(a.appointment_date).split(' ')[0]}</span>
+                <span className="text-sm font-semibold text-neutral-900">
+                  {formatDate(a.appointment_date) === 'Today' || formatDate(a.appointment_date) === 'Tomorrow' 
+                    ? formatDate(a.appointment_date).slice(0, 3)
+                    : a.appointment_date.split('-')[2]
+                  }
+                </span>
               </div>
-              <span className={`px-2 py-1 rounded-full text-xs ${a.status === "confirmed" ? "bg-emerald-100 text-emerald-700" : a.status === "pending" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"}`}>{a.status}</span>
-            </li>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm text-neutral-900 truncate">
+                  {a.reason_for_visit || "Consultation"}
+                </p>
+                <p className="text-xs text-neutral-500">{formatTime(a.appointment_time)}</p>
+              </div>
+              <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusStyle(a.status)}`}>
+                {a.status}
+              </span>
+            </Link>
           ))
         )}
-      </ul>
+      </div>
+      
+      {appointments.length > 0 && (
+        <div className="px-4 py-3 border-t border-neutral-200">
+          <Link href="/veterinarian/appointments" className="text-sm text-blue-600 hover:underline">
+            View all appointments
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

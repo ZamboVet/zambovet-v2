@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import { supabase } from "../../../lib/supabaseClient";
 import { CalendarDaysIcon, PlusIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
@@ -62,6 +62,8 @@ export default function OwnerAppointmentsPage() {
   const [ownerId, setOwnerId] = useState<number | null>(null);
   const [items, setItems] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchingMore, setFetchingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("all");
   const [qRaw, setQRaw] = useState("");
   const [query, setQuery] = useState("");
@@ -76,6 +78,10 @@ export default function OwnerAppointmentsPage() {
   const [mounted, setMounted] = useState(false);
   const [consultByAppt, setConsultByAppt] = useState<Record<number, { id: number; status: string }>>({});
   const [reviewByAppt, setReviewByAppt] = useState<Record<number, boolean>>({});
+  
+  // AbortController for cancelling in-flight requests
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const fetchIdRef = useRef(0);
 
   useEffect(() => {
     setMounted(true);
@@ -114,39 +120,88 @@ export default function OwnerAppointmentsPage() {
     init();
   }, []);
 
-  useEffect(() => {
-    const fetchList = async () => {
-      if (!ownerId || !fromDate || !toDate) return;
+  // AJAX fetch function with abort support
+  const fetchAppointments = useCallback(async (isLoadMore = false) => {
+    if (!ownerId || !fromDate || !toDate) return;
+    
+    // Cancel any in-flight request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Create new abort controller
+    abortControllerRef.current = new AbortController();
+    const currentFetchId = ++fetchIdRef.current;
+    
+    // Set appropriate loading state
+    if (isLoadMore) {
+      setFetchingMore(true);
+    } else {
       setLoading(true);
-      try {
-        const from = 0;
-        const to = page * PAGE_SIZE - 1;
-        let q = supabase
-          .from("appointments")
-          .select("id,appointment_date,appointment_time,status,reason_for_visit,clinic_id,pet_owner_id,patient_id,veterinarian_id")
-          .eq("pet_owner_id", ownerId)
-          .gte("appointment_date", fromDate)
-          .lte("appointment_date", toDate)
-          .order("appointment_date", { ascending: true })
-          .order("appointment_time", { ascending: true })
-          .range(from, to);
-        if (status !== "all") {
-          q = q.eq("status", status);
-        }
-        if (query.trim()) q = q.ilike("reason_for_visit", `%${query.trim()}%`);
-        const { data, error } = await q;
-        if (error) throw error;
-        const arr = (data || []) as Appointment[];
-        setItems(arr);
-        setHasMore(arr.length === page * PAGE_SIZE);
-      } catch (e: any) {
-        await Swal.fire({ icon: "error", title: "Failed to fetch", text: e?.message || "Please try again." });
-      } finally {
+      setError(null);
+    }
+    
+    try {
+      const from = 0;
+      const to = page * PAGE_SIZE - 1;
+      
+      let q = supabase
+        .from("appointments")
+        .select("id,appointment_date,appointment_time,status,reason_for_visit,clinic_id,pet_owner_id,patient_id,veterinarian_id")
+        .eq("pet_owner_id", ownerId)
+        .gte("appointment_date", fromDate)
+        .lte("appointment_date", toDate)
+        .order("appointment_date", { ascending: true })
+        .order("appointment_time", { ascending: true })
+        .range(from, to);
+        
+      if (status !== "all") {
+        q = q.eq("status", status);
+      }
+      if (query.trim()) {
+        q = q.ilike("reason_for_visit", `%${query.trim()}%`);
+      }
+      
+      const { data, error: fetchError } = await q;
+      
+      // Check if this request is still valid (not superseded by newer request)
+      if (currentFetchId !== fetchIdRef.current) return;
+      
+      if (fetchError) throw fetchError;
+      
+      const arr = (data || []) as Appointment[];
+      setItems(arr);
+      setHasMore(arr.length === page * PAGE_SIZE);
+      setError(null);
+    } catch (e: any) {
+      // Ignore abort errors
+      if (e?.name === 'AbortError') return;
+      
+      // Check if this request is still valid
+      if (currentFetchId !== fetchIdRef.current) return;
+      
+      setError(e?.message || "Failed to fetch appointments");
+      console.error("Fetch appointments error:", e);
+    } finally {
+      // Only update loading state if this is still the current request
+      if (currentFetchId === fetchIdRef.current) {
         setLoading(false);
+        setFetchingMore(false);
+      }
+    }
+  }, [ownerId, status, query, fromDate, toDate, page]);
+
+  // Trigger fetch when dependencies change
+  useEffect(() => {
+    fetchAppointments(page > 1);
+    
+    // Cleanup: abort on unmount or dependency change
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
       }
     };
-    fetchList();
-  }, [ownerId, status, query, fromDate, toDate, page]);
+  }, [fetchAppointments]);
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -234,20 +289,20 @@ export default function OwnerAppointmentsPage() {
       const rx = rxRes.data||[];
       const vitalsHtml = v ? `
         <div style='display:grid;grid-template-columns:1fr 1fr;gap:8px'>
-          <div style='display:flex;justify-content:space-between;padding:8px;border-radius:12px;background:#f6f7f9'><span style='color:#6b7280'>Weight</span><b>${v.weight ?? '—'} kg</b></div>
-          <div style='display:flex;justify-content:space-between;padding:8px;border-radius:12px;background:#f6f7f9'><span style='color:#6b7280'>Temperature</span><b>${v.temperature ?? '—'} °C</b></div>
-          <div style='display:flex;justify-content:space-between;padding:8px;border-radius:12px;background:#f6f7f9'><span style='color:#6b7280'>Heart rate</span><b>${v.heart_rate ?? '—'} bpm</b></div>
+          <div style='display:flex;justify-content:space-between;padding:8px;border-radius:12px;background:#f6f7f9'><span style='color:#6b7280'>Weight</span><b>${v.weight ?? '-'} kg</b></div>
+          <div style='display:flex;justify-content:space-between;padding:8px;border-radius:12px;background:#f6f7f9'><span style='color:#6b7280'>Temperature</span><b>${v.temperature ?? '-'} C</b></div>
+          <div style='display:flex;justify-content:space-between;padding:8px;border-radius:12px;background:#f6f7f9'><span style='color:#6b7280'>Heart rate</span><b>${v.heart_rate ?? '-'} bpm</b></div>
         </div>
         <div style='margin-top:8px'>
           <div style='font-size:12px;color:#6b7280'>Notes</div>
-          <div style='padding:8px;border-radius:12px;background:#f9fafb;border:1px solid #eef2f7'>${v.notes || '—'}</div>
-        </div>` : '<div style="padding:8px;border-radius:12px;background:#fff;border:1px solid #eef2f7">—</div>';
-      const dxHtml = dx.length ? dx.map((d:any,i:number)=> `<li style='border:1px solid #eef2f7;background:#fff;border-radius:12px;padding:10px'><div style='color:#2563eb;font-weight:600'>Diagnosis ${i+1}</div><div>${d.diagnosis_text}</div><div style='font-size:12px;color:#6b7280;margin-top:4px'>Notes</div><div>${d.notes || '—'}</div></li>`).join('') : '<li style="border:1px solid #eef2f7;background:#fff;border-radius:12px;padding:10px">—</li>';
-      const rxHtml = rx.length ? rx.map((r:any,i:number)=> `<li style='border:1px solid #eef2f7;background:#fff;border-radius:12px;padding:10px'><div style='color:#2563eb;font-weight:600'>Prescription ${i+1}</div><div>${r.medication_name}</div><div style='display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px'><div style='background:#f6f7f9;border-radius:10px;padding:8px;display:flex;justify-content:space-between'><span style='color:#6b7280'>Dosage</span><b>${r.dosage || '—'}</b></div><div style='background:#f6f7f9;border-radius:10px;padding:8px;display:flex;justify-content:space-between'><span style='color:#6b7280'>Duration</span><b>${r.duration || '—'}</b></div></div><div style='font-size:12px;color:#6b7280;margin-top:4px'>Instructions</div><div>${r.instructions || '—'}</div></li>`).join('') : '<li style="border:1px solid #eef2f7;background:#fff;border-radius:12px;padding:10px">—</li>';
+          <div style='padding:8px;border-radius:12px;background:#f9fafb;border:1px solid #eef2f7'>${v.notes || '-'}</div>
+        </div>` : '<div style="padding:8px;border-radius:12px;background:#fff;border:1px solid #eef2f7">-</div>';
+      const dxHtml = dx.length ? dx.map((d:any,i:number)=> `<li style='border:1px solid #eef2f7;background:#fff;border-radius:12px;padding:10px'><div style='color:#2563eb;font-weight:600'>Diagnosis ${i+1}</div><div>${d.diagnosis_text}</div><div style='font-size:12px;color:#6b7280;margin-top:4px'>Notes</div><div>${d.notes || '-'}</div></li>`).join('') : '<li style="border:1px solid #eef2f7;background:#fff;border-radius:12px;padding:10px">-</li>';
+      const rxHtml = rx.length ? rx.map((r:any,i:number)=> `<li style='border:1px solid #eef2f7;background:#fff;border-radius:12px;padding:10px'><div style='color:#2563eb;font-weight:600'>Prescription ${i+1}</div><div>${r.medication_name}</div><div style='display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px'><div style='background:#f6f7f9;border-radius:10px;padding:8px;display:flex;justify-content:space-between'><span style='color:#6b7280'>Dosage</span><b>${r.dosage || '-'}</b></div><div style='background:#f6f7f9;border-radius:10px;padding:8px;display:flex;justify-content:space-between'><span style='color:#6b7280'>Duration</span><b>${r.duration || '-'}</b></div></div><div style='font-size:12px;color:#6b7280;margin-top:4px'>Instructions</div><div>${r.instructions || '-'}</div></li>`).join('') : '<li style="border:1px solid #eef2f7;background:#fff;border-radius:12px;padding:10px">-</li>';
       const html = `
         <div style='font-family:Poppins,ui-sans-serif;text-align:left;display:grid;gap:14px'>
           <div style='display:flex;justify-content:space-between;align-items:center'>
-            <div style='font-size:13px;color:#6b7280'>${a.appointment_date} • ${a.appointment_time}</div>
+            <div style='font-size:13px;color:#6b7280'>${a.appointment_date} - ${a.appointment_time}</div>
             <span style='padding:4px 10px;border-radius:9999px;background:${(c as any).status==='completed'?'#DCFCE7':'#DBEAFE'};color:${(c as any).status==='completed'?'#166534':'#1E40AF'};font-size:12px;text-transform:capitalize'>${(c as any).status}</span>
           </div>
           <div>
@@ -281,75 +336,133 @@ export default function OwnerAppointmentsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 px-3 sm:px-4 md:px-6 py-4 sm:py-5 md:py-6">
-      <div className="mx-auto max-w-7xl space-y-3 sm:space-y-4 md:space-y-6">
-      {/* Header card like MyPetsPage */}
-      <div className="rounded-lg sm:rounded-2xl md:rounded-3xl bg-white/80 backdrop-blur-sm shadow ring-1 ring-black/5 p-3 sm:p-4 md:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-          <div className="h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 rounded-lg sm:rounded-xl bg-blue-600 text-white flex-shrink-0 grid place-items-center">
-            <CalendarDaysIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+    <div className="min-h-dvh bg-neutral-50">
+      <div className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 lg:px-8 pt-4 sm:pt-5 md:pt-6">
+        {/* Header Card - Matches My Pets page style */}
+        <div className="rounded-lg sm:rounded-2xl bg-white/70 backdrop-blur ring-1 ring-neutral-200 shadow-sm px-3 sm:px-4 md:px-5 py-3 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+            <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg sm:rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white grid place-items-center flex-shrink-0">
+              <CalendarDaysIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg md:text-xl font-semibold text-neutral-900 truncate">My Appointments</h1>
+              <p className="text-[10px] sm:text-xs md:text-sm text-neutral-500 truncate">Book and manage your pet visits</p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <div className="text-sm sm:text-base md:text-lg font-semibold text-neutral-900 truncate">My Appointments</div>
-            <div className="text-[10px] sm:text-xs md:text-sm text-neutral-500 truncate">Book and manage your pet's visits</div>
+          <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
+            <button 
+              onClick={()=> setViewMode(v => v==='List' ? 'Week' : 'List')} 
+              className="flex-1 sm:flex-none px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 hover:bg-neutral-50 text-[10px] sm:text-xs md:text-sm font-medium active:scale-95"
+            >
+              {viewMode==='List' ? 'Week View' : 'List View'}
+            </button>
+            <button 
+              onClick={()=> setModalOpen(true)} 
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-blue-600 text-white hover:bg-blue-700 text-[10px] sm:text-xs md:text-sm font-medium active:scale-95"
+            >
+              <PlusIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span>New Appointment</span>
+            </button>
           </div>
-        </div>
-        <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
-          <button onClick={()=> setViewMode(v => v==='List' ? 'Week' : 'List')} className="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 hover:bg-neutral-50 text-[10px] sm:text-xs md:text-sm font-medium active:scale-95">{viewMode==='List' ? 'Week' : 'List'}</button>
-          <button onClick={()=> setModalOpen(true)} className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-blue-600 text-white hover:bg-blue-700 text-[10px] sm:text-xs md:text-sm font-medium active:scale-95">
-            <PlusIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" /> <span className="hidden sm:inline">New Appointment</span><span className="sm:hidden">New</span>
-          </button>
         </div>
       </div>
 
+      <div className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-5 md:py-6 space-y-3 sm:space-y-4">
       {ownerId === null && (
-        <div className="rounded-lg sm:rounded-xl bg-amber-50 text-amber-800 ring-1 ring-amber-200 px-3 sm:px-4 py-2 text-xs sm:text-sm">
-          Please complete your profile to continue booking and managing appointments. <a href="/pet_owner/settings" className="underline font-medium">Go to Settings</a>
+        <div className="rounded-lg sm:rounded-2xl bg-amber-50 ring-1 ring-amber-200 p-3 sm:p-4 text-amber-800">
+          <div className="font-medium mb-1 text-sm">Profile incomplete</div>
+          <div className="text-xs sm:text-sm">Please complete your profile to continue booking and managing appointments. <a href="/pet_owner/settings" className="underline font-medium hover:text-amber-900">Go to Settings</a></div>
         </div>
       )}
 
-      {/* Toolbar chips */}
-      <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2">
-        <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 text-xs sm:text-sm min-w-0">
-          <span className="text-neutral-500 font-medium whitespace-nowrap">Status</span>
-          <select value={status} onChange={(e)=> setStatus(e.target.value)} className="outline-none bg-transparent font-medium flex-1 min-w-0">
-            <option value="all">All</option>
-            <option value="pending">Pending</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-        </div>
-        <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 text-[10px] sm:text-xs md:text-sm flex-1 sm:flex-none min-w-0">
-          <CalendarDaysIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-500 flex-shrink-0" />
-          <input type="date" suppressHydrationWarning value={fromDate} onChange={(e)=> setFromDate(e.target.value)} className="outline-none bg-transparent font-medium flex-1 min-w-0 text-[10px] sm:text-xs" />
-          <span className="text-neutral-400 px-0.5 flex-shrink-0">—</span>
-          <input type="date" suppressHydrationWarning value={toDate} onChange={(e)=> setToDate(e.target.value)} className="outline-none bg-transparent font-medium flex-1 min-w-0 text-[10px] sm:text-xs" />
-        </div>
-        <div className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 flex-1 sm:flex-1 text-xs sm:text-sm min-w-0">
-          <MagnifyingGlassIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-500 flex-shrink-0" />
-          <input value={qRaw} onChange={(e)=> setQRaw(e.target.value)} placeholder="Search..." className="w-full outline-none bg-transparent text-xs sm:text-sm" />
+      {/* Filters - Matches Clinics page style */}
+      <div className="sticky top-2 z-10">
+        <div className="rounded-lg sm:rounded-2xl bg-white/80 backdrop-blur ring-1 ring-neutral-200 p-2.5 sm:p-3 shadow-sm">
+          <div className="flex flex-col lg:flex-row gap-2 sm:gap-3 items-stretch lg:items-center">
+            <div className="flex items-center gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 px-2.5 sm:px-3 py-1.5 sm:py-2 shadow-sm flex-1 lg:flex-none lg:min-w-[180px]">
+              <span className="text-neutral-500 font-medium text-[10px] sm:text-xs whitespace-nowrap">Status</span>
+              <select 
+                value={status} 
+                onChange={(e)=> setStatus(e.target.value)} 
+                className="outline-none bg-transparent font-medium flex-1 min-w-0 text-xs sm:text-sm"
+              >
+                <option value="all">All</option>
+                <option value="pending">Pending</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 text-[10px] sm:text-xs shadow-sm flex-1 lg:flex-none min-w-0">
+              <CalendarDaysIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-500 flex-shrink-0" />
+              <input type="date" suppressHydrationWarning value={fromDate} onChange={(e)=> setFromDate(e.target.value)} className="outline-none bg-transparent font-medium flex-1 min-w-0 text-[10px] sm:text-xs" />
+              <span className="text-neutral-400 px-0.5 flex-shrink-0">-</span>
+              <input type="date" suppressHydrationWarning value={toDate} onChange={(e)=> setToDate(e.target.value)} className="outline-none bg-transparent font-medium flex-1 min-w-0 text-[10px] sm:text-xs" />
+            </div>
+            <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-white ring-1 ring-neutral-200 flex-1 shadow-sm text-xs sm:text-sm min-w-0">
+              <MagnifyingGlassIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-500 flex-shrink-0" />
+              <input 
+                value={qRaw} 
+                onChange={(e)=> setQRaw(e.target.value)} 
+                placeholder="Search..." 
+                className="w-full outline-none bg-transparent text-xs sm:text-sm" 
+              />
+            </div>
+          </div>
         </div>
       </div>
 
+      {/* Error display with retry */}
+      {error && (
+        <div className="rounded-lg sm:rounded-2xl bg-red-50 ring-1 ring-red-200 p-3 sm:p-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-red-800">
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-xs sm:text-sm font-medium">{error}</span>
+          </div>
+          <button 
+            onClick={() => fetchAppointments()} 
+            className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs sm:text-sm font-medium hover:bg-red-700 active:scale-95 whitespace-nowrap"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {viewMode === 'Week' ? (
-        <div className="rounded-lg sm:rounded-xl md:rounded-2xl bg-white/70 backdrop-blur shadow ring-1 ring-gray-100 p-2.5 sm:p-3 md:p-4 overflow-x-auto">
+        <div className="bg-white rounded-2xl shadow-sm ring-1 ring-neutral-100 p-4">
           {(() => {
             const byDay: Record<string, Appointment[]> = {};
             items.forEach(a=>{ (byDay[a.appointment_date] ||= []).push(a); });
             const days = Object.keys(byDay).sort();
-            if (days.length === 0) return <div className="text-[10px] sm:text-xs md:text-sm text-gray-600 text-center py-3 sm:py-4">No appointments in selected range.</div>;
+            if (days.length === 0) return (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 mx-auto rounded-2xl bg-blue-50 text-blue-600 grid place-items-center mb-3">
+                  <CalendarDaysIcon className="w-8 h-8" />
+                </div>
+                <div className="text-sm font-medium text-neutral-900">No appointments found</div>
+                <div className="text-sm text-neutral-500 mt-1">Try adjusting your date range or filters</div>
+              </div>
+            );
             return (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 md:gap-4 min-w-0">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {days.map(d => (
-                  <div key={d} className="rounded-lg sm:rounded-xl bg-white ring-1 ring-gray-100 p-2 sm:p-2.5 md:p-3 min-w-0">
-                    <div className="text-[10px] sm:text-xs md:text-sm font-semibold text-blue-700 truncate">{formatDatePretty(d)}</div>
-                    <ul className="mt-1.5 sm:mt-2 space-y-1.5 sm:space-y-2">
+                  <div key={d} className="rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 p-4 hover:shadow-md transition-shadow">
+                    <div className="text-sm font-bold text-blue-900 mb-3">{formatDatePretty(d)}</div>
+                    <ul className="space-y-2">
                       {byDay[d].map(a => (
-                        <li key={a.id} className="rounded-lg bg-gray-50 p-1.5 sm:p-2 md:p-3 text-[10px] sm:text-xs md:text-sm">
-                          <div className="font-medium text-blue-700 truncate">{a.appointment_time}</div>
-                          <div className="text-[10px] sm:text-xs text-gray-600 truncate mt-0.5">{a.reason_for_visit || 'Consultation'}</div>
-                          <span className={`inline-block mt-1 sm:mt-1.5 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] md:text-[11px] whitespace-nowrap ${a.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700' : a.status === 'pending' ? 'bg-amber-100 text-amber-700' : a.status === 'completed' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>{a.status}</span>
+                        <li key={a.id} className="rounded-lg bg-white shadow-sm border border-neutral-100 p-3 hover:shadow transition-shadow">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="font-semibold text-blue-700 text-sm">{a.appointment_time}</div>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${a.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700' : a.status === 'pending' ? 'bg-amber-100 text-amber-700' : a.status === 'completed' ? 'bg-blue-100 text-blue-700' : 'bg-neutral-100 text-neutral-600'}`}>
+                              {a.status}
+                            </span>
+                          </div>
+                          <div className="text-xs text-neutral-600 line-clamp-2">{a.reason_for_visit || 'General consultation'}</div>
+                          {a.patient_id && petsMap[a.patient_id] && (
+                            <div className="text-xs text-neutral-500 mt-1.5">Pet: {petsMap[a.patient_id].name}</div>
+                          )}
                         </li>
                       ))}
                     </ul>
@@ -360,53 +473,76 @@ export default function OwnerAppointmentsPage() {
           })()}
         </div>
       ) : (
-      <div className="rounded-lg sm:rounded-xl md:rounded-2xl bg-white/70 backdrop-blur shadow ring-1 ring-gray-100">
+      <div className="bg-white rounded-2xl shadow-sm ring-1 ring-neutral-100">
         {loading ? (
-          <ul className="divide-y animate-pulse">
+          <div className="divide-y divide-neutral-100 animate-pulse">
             {Array.from({ length: 5 }).map((_, i) => (
-              <li key={i} className="p-2.5 sm:p-3 md:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div className="space-y-1.5 sm:space-y-2 flex-1 min-w-0">
-                  <div className="h-3 sm:h-4 w-full sm:w-48 md:w-56 bg-gray-200 rounded" />
-                  <div className="h-2.5 sm:h-3 w-24 sm:w-32 md:w-40 bg-gray-100 rounded" />
+              <div key={i} className="p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 space-y-3">
+                    <div className="h-4 w-48 bg-neutral-200 rounded" />
+                    <div className="h-3 w-32 bg-neutral-100 rounded" />
+                    <div className="h-3 w-64 bg-neutral-100 rounded" />
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="h-8 w-20 bg-neutral-100 rounded-lg" />
+                    <div className="h-8 w-16 bg-neutral-100 rounded-lg" />
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-                  <div className="h-5 sm:h-6 w-10 sm:w-12 md:w-16 bg-gray-100 rounded-full" />
-                  <div className="h-7 sm:h-8 w-14 sm:w-16 md:w-20 bg-gray-100 rounded hidden sm:block" />
-                </div>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         ) : items.length === 0 ? (
-          <div className="p-4 sm:p-6 md:p-10 text-center">
-            <div className="mx-auto w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl grid place-items-center bg-blue-50 text-blue-700 mb-2">
-              <CalendarDaysIcon className="w-5 h-5 sm:w-6 sm:h-6" />
+          <div className="p-12 text-center">
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-blue-50 text-blue-600 grid place-items-center mb-4">
+              <CalendarDaysIcon className="w-8 h-8" />
             </div>
-            <div className="text-xs sm:text-sm text-gray-600">No appointments found</div>
-            <p className="text-[10px] sm:text-xs text-gray-400 mt-1">Try adjusting filters or book a new appointment.</p>
+            <div className="text-base font-semibold text-neutral-900">No appointments found</div>
+            <p className="text-sm text-neutral-500 mt-2">Try adjusting your filters or book a new appointment to get started.</p>
           </div>
         ) : (
-          <ul className="divide-y">
+          <div className="divide-y divide-neutral-100">
             {items.map(a => (
-              <li key={a.id} className="p-2 sm:p-3 md:p-4">
-                <div className="rounded-lg sm:rounded-xl bg-white shadow-sm ring-1 ring-gray-100 p-2.5 sm:p-3 md:p-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2.5 sm:gap-3 md:gap-4 hover:shadow-md transition">
+              <div key={a.id} className="p-4 hover:bg-neutral-50 transition-colors">
+                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-start flex-wrap gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
-                      <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[11px] md:text-xs font-semibold bg-blue-50 text-blue-700 ring-1 ring-blue-200 line-clamp-1">
-                        {(a.clinic_id && clinicsMap[a.clinic_id]?.name) || "-"}
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${a.status === "confirmed" ? "bg-emerald-100 text-emerald-700" : a.status === "pending" ? "bg-amber-100 text-amber-700" : a.status === "completed" ? "bg-blue-100 text-blue-700" : "bg-neutral-100 text-neutral-600"}`}>
+                        {a.status === 'confirmed' ? 'Confirmed' : a.status === 'pending' ? 'Pending' : a.status === 'completed' ? 'Completed' : 'Cancelled'}
                       </span>
+                      {(a.clinic_id && clinicsMap[a.clinic_id]?.name) && (
+                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                          {clinicsMap[a.clinic_id].name}
+                        </span>
+                      )}
                     </div>
-                    <div className="text-[10px] sm:text-[11px] md:text-xs text-gray-500 truncate mb-1">
-                      {(a.patient_id && petsMap[a.patient_id]?.name) || "-"} • {(a.veterinarian_id && vetsMap[a.veterinarian_id]?.full_name) || "-"}
+                    <div className="space-y-2">
+                      <div className="flex items-baseline gap-2">
+                        <div className="text-lg font-bold text-blue-700">{formatDatePretty(a.appointment_date)}</div>
+                        <div className="text-sm font-semibold text-blue-600">{a.appointment_time}</div>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-neutral-600">
+                        {a.patient_id && petsMap[a.patient_id] && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-medium">{petsMap[a.patient_id].name}</span>
+                          </div>
+                        )}
+                        {a.veterinarian_id && vetsMap[a.veterinarian_id] && (
+                          <div className="flex items-center gap-1.5">
+                            <span>Dr. {vetsMap[a.veterinarian_id].full_name}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-sm text-neutral-700">
+                        <span className="font-semibold">Reason:</span> {a.reason_for_visit || "General consultation"}
+                      </div>
                     </div>
-                    <div className="font-medium text-blue-700 text-xs sm:text-sm md:text-base truncate">{formatDatePretty(a.appointment_date)}</div>
-                    <div className="text-[10px] sm:text-xs md:text-sm text-blue-700">{a.appointment_time}</div>
-                    <div className="text-[10px] sm:text-xs md:text-sm text-gray-600 line-clamp-2 mt-1"><span className="font-medium">Reason:</span> {a.reason_for_visit || "Consultation"}</div>
                   </div>
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 sm:gap-2 w-full sm:w-auto flex-shrink-0">
-                    <span className={`px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[11px] md:text-xs font-medium text-center whitespace-nowrap ${a.status === "confirmed" ? "bg-emerald-100 text-emerald-700" : a.status === "pending" ? "bg-amber-100 text-amber-700" : a.status === "completed" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}>{a.status === 'cancelled' ? 'cancelled' : a.status}</span>
-                    <div className="flex gap-1.5 sm:gap-2 w-full sm:w-auto">
+                  <div className="flex flex-wrap lg:flex-nowrap items-center gap-2 flex-shrink-0">
                       {consultByAppt[a.id] && (
-                        <button onClick={()=>viewConsultation(a)} className="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-[10px] sm:text-[11px] md:text-sm font-medium transition active:scale-95 whitespace-nowrap">View</button>
+                        <button onClick={()=>viewConsultation(a)} className="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 text-sm font-semibold shadow-sm transition-all active:scale-95 whitespace-nowrap">
+                          View Details
+                        </button>
                       )}
                       {a.status === 'completed' && !reviewByAppt[a.id] && (
                         <ReviewModal
@@ -421,9 +557,8 @@ export default function OwnerAppointmentsPage() {
                       )}
                       {a.status !== 'cancelled' && a.status !== 'completed' && (
                         <button onClick={async ()=> {
-                          const res = await Swal.fire({ icon:'question', title:'Cancel?', showCancelButton:true, confirmButtonText:'Yes', confirmButtonColor:'#dc2626' });
+                          const res = await Swal.fire({ icon:'question', title:'Cancel Appointment?', text:'This action cannot be undone.', showCancelButton:true, confirmButtonText:'Yes, Cancel', cancelButtonText:'Keep It', confirmButtonColor:'#dc2626' });
                           if (!res.isConfirmed) return;
-                          // Verify ownership server-side before cancelling
                           const verifiedOwnerId = await verifyAppointmentOwnership(a.id);
                           if (!verifiedOwnerId) {
                             await Swal.fire({ icon:'error', title:'Unauthorized', text:'You do not have permission to cancel this appointment.' });
@@ -432,14 +567,16 @@ export default function OwnerAppointmentsPage() {
                           const { error } = await supabase.from('appointments').update({ status:'cancelled' }).eq('id', a.id).eq('pet_owner_id', verifiedOwnerId);
                           if (error) { await Swal.fire({ icon:'error', title:'Failed', text:error.message }); return; }
                           setItems(prev => prev.map(it => it.id===a.id ? { ...it, status:'cancelled' } : it));
-                          try { await supabase.from('notifications').insert({ user_id: (await supabase.auth.getUser()).data.user?.id, title:'Appointment cancelled', message:`Appointment #${a.id} on ${a.appointment_date} • ${a.appointment_time}`, related_appointment_id: a.id, notification_type:'system' }); } catch {}
-                          await Swal.fire({ icon:'success', title:'Canceled', confirmButtonColor:'#2563eb' });
-                        }} className="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 ring-1 ring-red-200 text-[10px] sm:text-[11px] md:text-sm font-medium transition active:scale-95 whitespace-nowrap">Cancel</button>
+                          try { await supabase.from('notifications').insert({ user_id: (await supabase.auth.getUser()).data.user?.id, title:'Appointment cancelled', message:`Appointment #${a.id} on ${a.appointment_date} at ${a.appointment_time}`, related_appointment_id: a.id, notification_type:'system' }); } catch {}
+                          await Swal.fire({ icon:'success', title:'Cancelled Successfully', confirmButtonColor:'#2563eb' });
+                        }} className="px-4 py-2 rounded-xl bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 text-sm font-semibold transition-all active:scale-95 whitespace-nowrap">
+                          Cancel
+                        </button>
                       )}
                       {a.status !== 'cancelled' && (
                         <button 
                           disabled={a.status === 'confirmed' || a.status === 'completed' || a.status === 'in_progress'}
-                          title={a.status === 'confirmed' || a.status === 'completed' || a.status === 'in_progress' ? 'Cannot reschedule confirmed appointments. Please contact the clinic to reschedule.' : 'Reschedule appointment'}
+                          title={a.status === 'confirmed' || a.status === 'completed' || a.status === 'in_progress' ? 'Cannot reschedule confirmed appointments. Please contact the clinic.' : 'Reschedule appointment'}
                           onClick={async ()=> {
                             if (a.status === 'confirmed' || a.status === 'completed' || a.status === 'in_progress') return;
                             const { value: form, isConfirmed } = await Swal.fire<{ date: string; time: string }>({
@@ -491,40 +628,52 @@ export default function OwnerAppointmentsPage() {
                             const { error } = await supabase.from('appointments').update({ appointment_date: form.date, appointment_time: form.time }).eq('id', a.id).eq('pet_owner_id', verifiedOwnerId);
                             if (error) { await Swal.fire({ icon:'error', title:'Failed', text:error.message }); return; }
                             setItems(prev => prev.map(it => it.id===a.id ? { ...it, appointment_date: form.date, appointment_time: form.time } : it));
-                            try { await supabase.from('notifications').insert({ user_id: (await supabase.auth.getUser()).data.user?.id, title:'Appointment rescheduled', message:`Appointment #${a.id} → ${form.date} • ${form.time}`, related_appointment_id: a.id, notification_type:'system' }); } catch {}
+                            try { await supabase.from('notifications').insert({ user_id: (await supabase.auth.getUser()).data.user?.id, title:'Appointment rescheduled', message:`Appointment #${a.id} moved to ${form.date} at ${form.time}`, related_appointment_id: a.id, notification_type:'system' }); } catch {}
                             await Swal.fire({ icon:'success', title:'Rescheduled', confirmButtonColor:'#2563eb' });
                           }} 
-                          className={`flex-1 sm:flex-none px-2 sm:px-3 py-1.5 rounded-lg text-[10px] sm:text-[11px] md:text-sm font-medium transition active:scale-95 whitespace-nowrap ${
+                          className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all active:scale-95 whitespace-nowrap ${
                             a.status === 'confirmed' || a.status === 'completed' || a.status === 'in_progress'
-                              ? 'bg-gray-100 text-gray-400 ring-1 ring-gray-200 cursor-not-allowed opacity-60'
-                              : 'bg-purple-50 text-purple-700 hover:bg-purple-100 ring-1 ring-purple-200'
+                              ? 'bg-neutral-100 text-neutral-400 border border-neutral-200 cursor-not-allowed opacity-60'
+                              : 'bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200'
                           }`}
                         >
                           Reschedule
                         </button>
                       )}
-                    </div>
                   </div>
                 </div>
-              </li>
+              </div>
             ))}
-            <li className="p-2 sm:p-2">
-              <div ref={sentinelRef} className="h-6 sm:h-8 w-full text-center text-[10px] sm:text-xs text-gray-400">{hasMore ? 'Loading more…' : '– End of results –'}</div>
-            </li>
-          </ul>
+            <div className="p-4">
+              <div ref={sentinelRef} className="h-8 w-full text-center text-sm text-neutral-400 font-medium flex items-center justify-center gap-2">
+                {fetchingMore ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    <span>Loading more...</span>
+                  </>
+                ) : hasMore ? (
+                  <span>Scroll for more</span>
+                ) : (
+                  <span>All appointments loaded</span>
+                )}
+              </div>
+            </div>
+          </div>
         )}
       </div>
       )}
-
+      </div>
       <CreateAppointmentModal
         open={modalOpen}
         ownerId={ownerId}
         onClose={() => setModalOpen(false)}
         onCreated={(appt) => {
-          setItems(prev => [...prev, appt]);
+          setItems((prev) => [...prev, appt]);
         }}
       />
-      </div>
     </div>
   );
 }

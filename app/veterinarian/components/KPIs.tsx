@@ -1,5 +1,7 @@
 "use client";
 
+import { CalendarDaysIcon, CheckCircleIcon, ClockIcon, StarIcon } from "@heroicons/react/24/outline";
+
 type Props = {
   today: number;
   pending: number;
@@ -8,71 +10,78 @@ type Props = {
   primary: string;
 };
 
-import { CalendarDaysIcon, CheckCircleIcon, ClockIcon, StarIcon } from "@heroicons/react/24/outline";
-
 export default function KPIs({ today, pending, confirmed, rating, primary }: Props) {
   return (
-    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <Card
-        title="Total Appointments"
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <StatCard
+        title="Today's Appointments"
         value={today}
-        icon={<CalendarDaysIcon className="w-6 h-6" />}
-        dotClass="bg-blue-500"
-        iconClass="bg-blue-50 text-blue-700"
-        subLeft="All time"
-        subRight="+12% vs last month"
-        primary={primary}
+        icon={CalendarDaysIcon}
+        color="blue"
       />
-      <Card
-        title="Pending Appointments"
+      <StatCard
+        title="Pending"
         value={pending}
-        icon={<ClockIcon className="w-6 h-6" />}
-        dotClass="bg-amber-500"
-        iconClass="bg-amber-50 text-amber-700"
-        subLeft="Needs attention"
-        subRight=""
-        primary={primary}
+        icon={ClockIcon}
+        color="amber"
+        highlight={pending > 0}
       />
-      <Card
-        title="Completed Today"
+      <StatCard
+        title="Completed"
         value={confirmed}
-        icon={<CheckCircleIcon className="w-6 h-6" />}
-        dotClass="bg-emerald-500"
-        iconClass="bg-emerald-50 text-emerald-700"
-        subLeft="Consultations"
-        subRight="Great progress!"
-        primary={primary}
+        icon={CheckCircleIcon}
+        color="green"
       />
-      <Card
-        title="Patient Rating"
-        value={Number(rating.toFixed(1))}
-        icon={<StarIcon className="w-6 h-6" />}
-        dotClass="bg-yellow-500"
-        iconClass="bg-yellow-50 text-yellow-600"
-        subLeft={<span><span className="underline">0 reviews</span></span>}
-        subRight="Excellent!"
-        primary={primary}
+      <StatCard
+        title="Rating"
+        value={rating.toFixed(1)}
+        icon={StarIcon}
+        color="amber"
+        suffix="/5"
       />
     </div>
   );
 }
 
-function Card({ title, value, icon, dotClass, iconClass, subLeft, subRight, primary }: { title: string; value: number; icon: React.ReactNode; dotClass: string; iconClass: string; subLeft: React.ReactNode; subRight: React.ReactNode; primary: string }) {
+function StatCard({ 
+  title, 
+  value, 
+  icon: Icon, 
+  color,
+  highlight,
+  suffix
+}: { 
+  title: string; 
+  value: number | string; 
+  icon: any; 
+  color: "blue" | "amber" | "green";
+  highlight?: boolean;
+  suffix?: string;
+}) {
+  const colors = {
+    blue: "bg-blue-50 text-blue-600",
+    amber: "bg-amber-50 text-amber-600",
+    green: "bg-green-50 text-green-600",
+  };
+
   return (
-    <div className="rounded-2xl bg-white p-5 ring-1 ring-gray-100 shadow-sm hover:shadow-md transition">
-      <div className="flex items-start justify-between">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <span className={`w-2 h-2 rounded-full ${dotClass}`} />
-            <span>{title}</span>
-          </div>
-          <div className="mt-2 text-3xl font-bold" style={{ color: primary }}>{value}</div>
+    <div className="bg-white rounded-xl border border-neutral-200 p-4">
+      <div className="flex items-center justify-between">
+        <div className={`w-9 h-9 rounded-lg ${colors[color]} flex items-center justify-center`}>
+          <Icon className="w-5 h-5" />
         </div>
-        <div className={`w-10 h-10 rounded-xl grid place-items-center ${iconClass}`}>{icon}</div>
+        {highlight && (
+          <span className="px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
+            Needs attention
+          </span>
+        )}
       </div>
-      <div className="mt-3 flex items-center justify-between text-xs">
-        <div className="text-emerald-600/90">{subLeft}</div>
-        <div className="text-gray-400">{subRight}</div>
+      <div className="mt-3">
+        <div className="flex items-baseline gap-1">
+          <span className="text-2xl font-semibold text-neutral-900">{value}</span>
+          {suffix && <span className="text-sm text-neutral-400">{suffix}</span>}
+        </div>
+        <p className="text-sm text-neutral-500 mt-0.5">{title}</p>
       </div>
     </div>
   );
